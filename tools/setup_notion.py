@@ -58,7 +58,7 @@ async def main(apply: bool) -> int:
         print(f"✓ Properti '{s.prop_sumber}' ditambahkan (Konfirmasi · Otomatis · Manual).")
     elif s.prop_sumber not in props:
         print(f"\nJalankan dengan --apply untuk menambahkan properti '{s.prop_sumber}'.")
-        print(f"Atau set NOTION_SUMBER_ENABLED=false kalau memang tidak mau memakainya.")
+        print("Atau set SUMBER_ENABLED = False di app/config.py kalau tidak mau memakainya.")
 
     await repo.client.close()
     return 1 if issues else 0
