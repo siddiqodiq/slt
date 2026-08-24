@@ -1,0 +1,58 @@
+{
+  "name": "Bot Ibadah",
+  "description": "Bot Telegram pencatat shalat & sunnah dengan dashboard Mini App, data di Notion.",
+  "keywords": [
+    "telegram",
+    "notion",
+    "fastapi",
+    "ibadah"
+  ],
+  "stack": "heroku-24",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    "heroku-redis:mini"
+  ],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Token dari BotFather",
+      "required": true
+    },
+    "TELEGRAM_OWNER_ID": {
+      "description": "User id Telegram kamu — satu-satunya yang dilayani",
+      "required": true
+    },
+    "TELEGRAM_PROMPT_CHAT_ID": {
+      "description": "Tujuan laporan otomatis bot; kosong = japri owner",
+      "required": false
+    },
+    "TELEGRAM_PROMPT_THREAD_ID": {
+      "description": "Topik forum di grup tujuan, kalau ada",
+      "required": false
+    },
+    "TELEGRAM_WEBHOOK_SECRET": {
+      "description": "String acak untuk memverifikasi update masuk",
+      "generator": "secret"
+    },
+    "NOTION_TOKEN": {
+      "description": "Integration token Notion",
+      "required": true
+    },
+    "BASE_URL": {
+      "description": "URL https app ini, mis. https://nama-app.herokuapp.com",
+      "required": true
+    },
+    "TZ": {
+      "value": "Asia/Jakarta"
+    }
+  }
+}

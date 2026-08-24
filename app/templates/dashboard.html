@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dashboard Ibadah</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Dashboard Ibadah</h1>
+    <p class="sub" id="periode-label">Memuat…</p>
+  </header>
+
+  <form id="filters" class="filters"
+        hx-get="/app/panel"
+        hx-target="#panel"
+        hx-swap="innerHTML"
+        hx-trigger="load, change, submit"
+        hx-indicator="#spinner"
+        onsubmit="return false;">
+
+    <div class="grup">
+      <span class="grup-judul">Rentang</span>
+      <div class="chips">
+        {% for value, label in [('7','7 hari'), ('30','30 hari'), ('bulan','Bulan ini'), ('kustom','Kustom')] %}
+        <label class="chip">
+          <input type="radio" name="preset" value="{{ value }}" {% if value == '30' %}checked{% endif %}
+                 onchange="document.getElementById('kustom-range').hidden = this.value !== 'kustom';">
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div id="kustom-range" class="rentang" hidden>
+        <input type="date" name="start" value="{{ today }}" max="{{ today }}">
+        <span>→</span>
+        <input type="date" name="end" value="{{ today }}" max="{{ today }}">
+      </div>
+    </div>
+
+    <details class="grup">
+      <summary class="grup-judul">Filter lanjutan</summary>
+
+      <span class="sub-judul">Shalat</span>
+      <div class="chips">
+        {% for prayer in prayers %}
+        <label class="chip"><input type="checkbox" name="prayer" value="{{ prayer }}"><span>{{ prayer }}</span></label>
+        {% endfor %}
+      </div>
+
+      <span class="sub-judul">Kategori waktu</span>
+      <div class="chips">
+        {% for w in waktu_options %}
+        <label class="chip"><input type="checkbox" name="waktu" value="{{ w }}"><span>{{ w.split(' ')[0] }}</span></label>
+        {% endfor %}
+      </div>
+
+      <span class="sub-judul">Cara</span>
+      <div class="chips">
+        {% for c in cara_options %}
+        <label class="chip"><input type="checkbox" name="cara" value="{{ c }}"><span>{{ c }}</span></label>
+        {% endfor %}
+      </div>
+
+      <span class="sub-judul">Hari dalam pekan</span>
+      <div class="chips">
+        {% for value, label in hari_pilihan %}
+        <label class="chip"><input type="checkbox" name="hari" value="{{ value }}"><span>{{ label }}</span></label>
+        {% endfor %}
+      </div>
+
+      <label class="baris-toggle">
+        <input type="checkbox" name="tanpa_otomatis" value="1">
+        <span>Sembunyikan hari yang terisi otomatis</span>
+      </label>
+    </details>
+  </form>
+
+  <div id="spinner" class="spinner htmx-indicator">memuat…</div>
+  <main id="panel"></main>
+
+  <footer class="kaki">
+    <p>Data tersimpan di Notion. Semua angka di sini dihitung saat tampil, bukan disimpan.</p>
+  </footer>
+
+  <script>
+    (function () {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      const headers = {};
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        headers['X-Telegram-Init-Data'] = tg.initData || '';
+      }
+      const dev = new URLSearchParams(location.search).get('dev');
+      if (dev) headers['X-Dev-Token'] = dev;
+      document.body.setAttribute('hx-headers', JSON.stringify(headers));
+    })();
+  </script>
+  <script src="/static/htmx.min.js"></script>
+  <script>
+    document.body.addEventListener('htmx:responseError', function (event) {
+      document.getElementById('panel').innerHTML =
+        '<div class="kartu galat"><b>Gagal memuat data</b><p>' +
+        (event.detail.xhr.status === 401
+          ? 'Sesi Telegram tidak valid. Tutup lalu buka lagi mini app dari bot.'
+          : 'Kode ' + event.detail.xhr.status + '. Coba lagi sebentar.') + '</p></div>';
+    });
+  </script>
+</body>
+</html>

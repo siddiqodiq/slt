@@ -1,0 +1,87 @@
+{# Potongan HTML yang ditukar htmx tiap filter berubah — tidak ada state di klien. #}
+<script>
+  (function () {
+    var el = document.getElementById('periode-label');
+    if (el) el.textContent = {{ filters.label()|tojson }};
+  })();
+</script>
+
+<section class="kartu ringkasan">
+  <div class="tile">
+    <span class="angka">{{ agg.summary.pct_awal }}%</span>
+    <span class="ket">di awal waktu</span>
+  </div>
+  <div class="tile">
+    <span class="angka">{{ agg.summary.pct_jamaah }}%</span>
+    <span class="ket">berjamaah / masjid</span>
+  </div>
+  <div class="tile">
+    <span class="angka">{{ agg.summary.tilawah_total }}</span>
+    <span class="ket">halaman tilawah</span>
+  </div>
+  <div class="tile">
+    <span class="angka">{{ agg.summary.streak }}</span>
+    <span class="ket">hari berturut lengkap</span>
+  </div>
+  <p class="catatan-kecil">
+    {{ agg.summary.tercatat }} dari {{ agg.summary.kemungkinan }} shalat tercatat
+    ({{ agg.summary.pct_tercatat }}%) · rata-rata tilawah {{ agg.summary.tilawah_avg }} hal/hari
+    {% if agg.summary.hari_otomatis %} · {{ agg.summary.hari_otomatis }} hari terisi otomatis{% endif %}
+  </p>
+</section>
+
+<section class="kartu">
+  <h2>Heatmap</h2>
+  <div class="scroll-x">{{ svg_heatmap|safe }}</div>
+  <div class="legenda">
+    <span class="petak q0"></span><span class="petak q1"></span><span class="petak q2"></span>
+    <span class="petak q3"></span><span class="petak q4"></span>
+    <span class="ket">kosong → penuh</span>
+  </div>
+</section>
+
+<section class="kartu">
+  <h2>Rincian per shalat</h2>
+  <div class="scroll-x">{{ svg_prayer|safe }}</div>
+  <div class="legenda">
+    {% for w in waktu_options %}
+    <span class="petak {{ {'Awal waktu':'c-awal','Tengah waktu':'c-tengah','Akhir waktu':'c-akhir','Lewat waktu':'c-lewat'}[w] }}"></span>
+    <span class="ket">{{ w.split(' ')[0] }}</span>
+    {% endfor %}
+  </div>
+  <table class="tabel">
+    <thead><tr><th>Shalat</th><th>Awal</th><th>Tengah</th><th>Akhir</th><th>Lewat</th><th>Belum</th></tr></thead>
+    <tbody>
+      {% for row in agg.per_prayer %}
+      <tr>
+        <td>{{ row.prayer }}</td>
+        {% for w in waktu_options %}<td>{{ row.counts[w] }}</td>{% endfor %}
+        <td class="redup">{{ row.belum }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="kartu">
+  <h2>Sunnah <span class="sub">paling jarang di atas</span></h2>
+  <div class="scroll-x">{{ svg_sunnah|safe }}</div>
+</section>
+
+<section class="kartu">
+  <h2>Tren tilawah <span class="sub">garis = rata-rata 7 hari</span></h2>
+  <div class="scroll-x">{{ svg_tilawah|safe }}</div>
+</section>
+
+<section class="kartu">
+  <h2>Catatan</h2>
+  {% if agg.catatan %}
+  <ul class="catatan">
+    {% for item in agg.catatan %}
+    <li><span class="tanggal">{{ item.date.strftime('%d %b') }}</span> {{ item.text }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="kosong">Belum ada catatan pada rentang ini. Tulis lewat <code>/catatan</code> — di situlah sebabnya berada.</p>
+  {% endif %}
+</section>
