@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from functools import wraps
 
 from telegram import Update
-from telegram.constants import ParseMode
+from telegram.constants import ChatType, ParseMode
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 from ..config import (
@@ -25,6 +25,7 @@ from ..timeutil import fmt_tanggal, label_hari, now_local
 from .keyboards import (
     WAKTU_LABEL,
     dashboard_keyboard,
+    dashboard_link_keyboard,
     edit_cara_keyboard,
     edit_day_keyboard,
     edit_prayer_keyboard,
@@ -45,6 +46,12 @@ HELP = """<b>Bot Ibadah</b>
 /edit — koreksi shalat hari ini atau kemarin
 /rekap — ringkasan 7 &amp; 30 hari
 /dashboard — buka Mini App"""
+
+
+def is_private(update: Update) -> bool:
+    """Tombol web_app hanya sah di chat pribadi — Telegram menolaknya di grup."""
+    chat = update.effective_chat
+    return chat is not None and chat.type == ChatType.PRIVATE
 
 
 def rt_of(context: ContextTypes.DEFAULT_TYPE):
@@ -102,9 +109,15 @@ async def reply(update: Update, text: str, **kwargs):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     rt = rt_of(context)
     url = rt.settings.webapp_url
+    # Deep link dari tombol grup: t.me/<bot>?start=dashboard
+    if context.args and context.args[0] == "dashboard":
+        await cmd_dashboard(update, context)
+        return
     if update.effective_message:
         await update.effective_message.reply_text(
-            HELP, parse_mode=ParseMode.HTML, reply_markup=main_menu_keyboard(url)
+            HELP,
+            parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_keyboard(url, private=is_private(update)),
         )
 
 
@@ -229,6 +242,12 @@ async def cmd_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     url = rt.settings.webapp_url
     if not url.startswith("https://"):
         await reply(update, "BASE_URL belum diset ke URL https publik, jadi Mini App belum bisa dibuka.")
+        return
+    if not is_private(update):
+        await update.effective_message.reply_text(
+            "Mini App hanya bisa dibuka di chat pribadi — Telegram melarang tombol web app di grup.",
+            reply_markup=dashboard_link_keyboard(context.bot.username),
+        )
         return
     await update.effective_message.reply_text(
         "Dashboard ibadah — filter rentang, per shalat, dan hari dalam pekan.",

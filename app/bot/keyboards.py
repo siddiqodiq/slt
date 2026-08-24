@@ -138,13 +138,27 @@ def dashboard_keyboard(url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("📊 Buka Dashboard", web_app=WebAppInfo(url=url))]])
 
 
-def main_menu_keyboard(url: str | None = None) -> ReplyKeyboardMarkup:
+def dashboard_link_keyboard(bot_username: str) -> InlineKeyboardMarkup:
+    """Di luar chat pribadi Telegram menolak tombol web_app — arahkan ke japri."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📊 Buka Dashboard di japri",
+                    url=f"https://t.me/{bot_username}?start=dashboard",
+                )
+            ]
+        ]
+    )
+
+
+def main_menu_keyboard(url: str | None = None, *, private: bool = True) -> ReplyKeyboardMarkup:
     rows = [
         [KeyboardButton("/hariini"), KeyboardButton("/edit")],
         [KeyboardButton("/isi"), KeyboardButton("/rekap")]
     ]
-    if url and url.startswith("https://"):
-        rows.append([KeyboardButton("?? Dashboard", web_app=WebAppInfo(url=url))])
+    if private and url and url.startswith("https://"):
+        rows.append([KeyboardButton("📊 Dashboard", web_app=WebAppInfo(url=url))])
     else:
         rows.append([KeyboardButton("/dashboard")])
 
