@@ -50,8 +50,8 @@ class FakeRuntime:
         self.repo = repo or FakeRepo()
         self.sent = []
 
-    async def notify_owner(self, text, reply_markup=None):
-        self.sent.append(text)
+    async def notify_owner(self, text, reply_markup=None, *, silent=False):
+        self.sent.append((text, silent))
 
 
 @pytest.fixture
@@ -68,7 +68,13 @@ def test_ambang_dibaca_dari_config(rt):
 async def test_mengisi_saat_ambang_lewat(rt):
     await PrayerScheduler(rt).tick(dt(HARI, "17:50"))
     assert (HARI, "Maghrib", "Awal waktu", "Munfarid", "Otomatis") in rt.repo.writes
-    assert any("Maghrib" in pesan for pesan in rt.sent)
+    assert any("Maghrib" in teks for teks, _ in rt.sent)
+
+
+async def test_pesan_autofill_dikirim_senyap(rt):
+    """Lima kali sehari — pesannya tetap masuk, tapi tidak berbunyi."""
+    await PrayerScheduler(rt).tick(dt(HARI, "17:50"))
+    assert rt.sent and all(silent for _, silent in rt.sent)
 
 
 async def test_tidak_menulis_sebelum_ambang(rt):

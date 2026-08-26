@@ -140,7 +140,13 @@ class Runtime:
         else:
             log.info("Skema Notion cocok")
 
-    async def notify_owner(self, text: str, reply_markup=None) -> None:
+    async def notify_owner(self, text: str, reply_markup=None, *, silent: bool = False) -> None:
+        """`silent` mengirim tanpa bunyi/getar — pesannya tetap masuk.
+
+        Dipakai auto-fill: lima kali sehari, tiap hari, dan isinya jarang butuh
+        tindakan segera. Peringatan error tetap berbunyi, karena itu justru yang
+        harus mengganggu.
+        """
         target = self.settings.prompt_target
         if self.telegram is None or not target:
             return
@@ -151,6 +157,7 @@ class Runtime:
                 text=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
+                disable_notification=silent,
                 **({"message_thread_id": thread} if thread else {}),
             )
         except Exception:  # noqa: BLE001

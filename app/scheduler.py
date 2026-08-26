@@ -128,4 +128,8 @@ class PrayerScheduler:
             f"Terisi otomatis: <b>{self.s.autofill_waktu} · {self.s.autofill_cara}</b>.\n"
             "Koreksi kalau berbeda."
         )
-        await self.rt.notify_owner(text, reply_markup=autofill_keyboard(day, prayer))
+        # Senyap: lima kali sehari, tiap hari. Pesannya tetap masuk lengkap dengan
+        # tombol koreksi, hanya tidak berbunyi.
+        await self.rt.notify_owner(
+            text, reply_markup=autofill_keyboard(day, prayer), silent=True
+        )
