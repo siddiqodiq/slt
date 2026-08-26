@@ -4,9 +4,21 @@ Bot Telegram untuk mencatat shalat dan sunnah harian, dengan dashboard yang
 dibuka di dalam Telegram. Data tersimpan di Notion dan tetap bisa kamu edit
 langsung dari sana. Seluruhnya Python — tidak ada toolchain JavaScript.
 
-Dibangun dari `brief.md`, **tanpa bagian pengingat/auto-fill shalat**: tidak ada
-prompt waktu shalat, tidak ada jadwal adzan, tidak ada penulisan otomatis. Semua
-pencatatan berasal dari tindakanmu sendiri.
+Dibangun dari `brief.md`. **Auto-fill shalat aktif**: begitu ambang waktu shalat
+lewat, barisnya diisi `Awal waktu + Munfarid`, ditandai `Sumber = Otomatis`, dan
+bot mengirim pesan berisi tombol koreksi satu ketukan. Ambangnya jam datar waktu
+Jakarta di `JAM_SHALAT` (`app/config.py`) — bukan jadwal adzan yang diambil
+online, karena presisi menit tidak mengubah apa yang ditulis. Auto-fill tidak
+pernah menimpa entri yang sudah kamu isi sendiri, dan hari yang tidak kamu sentuh
+tetap bisa disaring di dashboard.
+
+| Shalat | Ambang |
+|---|---|
+| Subuh | 04:30 |
+| Dzuhur | 11:50 |
+| Ashar | 15:10 |
+| Maghrib | 17:50 |
+| Isya | 19:00 |
 
 ```
 app/
@@ -118,15 +130,21 @@ heroku config:set TELEGRAM_BOT_TOKEN=... TELEGRAM_OWNER_ID=... NOTION_TOKEN=... 
 git push heroku main
 ```
 
-Satu proses `web` saja — tidak ada clock process, karena tidak ada lagi pekerjaan
-berjadwal. Webhook dipasang sendiri saat boot dari `BASE_URL`. Cek dengan
-`heroku logs --tail` dan `curl https://<app>.herokuapp.com/health`.
+Satu proses `web` saja: penjadwal auto-fill ikut berjalan di dalamnya, jadi tidak
+perlu clock process terpisah (§2 membolehkan penggabungan ini). Restart tidak
+merusak apa pun — penjadwal membangun keadaannya ulang dari jam dinding tiap
+tick, bukan dari timer. Webhook dan tombol menu Mini App dipasang sendiri saat
+boot dari `BASE_URL`. Cek dengan `heroku logs --tail` dan
+`curl https://<app>.herokuapp.com/health`.
 
-Karena bot sekarang murni reaktif, **Eco dyno ($5/bln) menjadi layak** —
-larangan Eco di brief berlaku untuk prompt shalat terjadwal, yang sudah tidak
-ada. Konsekuensinya perintah pertama setelah dyno tidur butuh beberapa detik
-untuk membangunkannya. Kalau jeda itu mengganggu, pakai Basic
-(`heroku ps:scale web=1:basic`).
+**Basic dyno wajib** (`heroku ps:scale web=1:basic`). Eco tidur setelah 30 menit
+tanpa trafik web, dan dyno yang tidur tidak menjalankan penjadwal — Maghrib lewat
+tanpa tercatat. Ini bukan preferensi; §3 brief menjelaskan Eco secara struktural
+tidak bisa menjalankan fitur ini.
+
+Ambang waktu shalat dipatok di `app/config.py` (`JAM_SHALAT`), bukan config var —
+ia bukan rahasia dan tidak berbeda antara laptop dan Heroku. Ubah dict itu kalau
+angkanya terasa meleset; tidak ada tempat lain yang perlu disentuh.
 
 ## Perintah
 
@@ -147,7 +165,7 @@ untuk membangunkannya. Kalau jeda itu mengganggu, pakai Basic
 - Tiap ganti filter = satu `GET` htmx yang mengembalikan potongan HTML. Grafik
   adalah SVG yang dirakit di Python; satu-satunya JS pihak ketiga adalah
   `htmx.min.js` yang di-serve sendiri.
-- Blok: ringkasan, heatmap kalender, rincian per shalat, frekuensi sunnah
+- Blok: ringkasan, rincian per shalat, frekuensi sunnah
   (paling jarang di atas), tren tilawah dengan rata-rata bergerak 7 hari, catatan.
 - Filter: rentang (7/30 hari, bulan ini, kustom), per shalat, per kategori waktu,
   per cara, hari dalam pekan, dan sembunyikan hari yang terisi otomatis.
@@ -156,8 +174,8 @@ untuk membangunkannya. Kalau jeda itu mengganggu, pakai Basic
 
 - **Notion tetap bisa diedit langsung.** Bot membaca ulang tiap kali cache
   kedaluwarsa (60 detik), dan tiap penulisan menghapus cache yang terdampak.
-- **Skor tidak disimpan.** Semua persentase, heatmap, dan streak dihitung saat
-  tampil, jadi rumusnya bisa diubah tanpa menyentuh satu pun baris data lama.
+- **Skor tidak disimpan.** Semua persentase dan streak dihitung saat tampil, jadi
+  rumusnya bisa diubah tanpa menyentuh satu pun baris data lama.
 - **Skema diperiksa saat boot.** Kalau ada properti yang hilang atau berubah
   tipe, bot melapor lewat Telegram alih-alih gagal senyap.
 - **Kolom Sumber** kini hanya berisi `Konfirmasi`/`Manual` untuk baris baru;

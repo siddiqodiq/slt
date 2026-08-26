@@ -3,25 +3,20 @@ from datetime import date, datetime
 import pytest
 
 from app.config import Settings
-from app.domain import day_quality, sumber_merge
+from app.domain import sumber_merge
 from app.timeutil import tz
 
 
-def test_kualitas_hari_menghitung_shalat_yang_hilang_sebagai_nol():
-    penuh = {
-        p: {"waktu": "Awal waktu", "cara": "Masjid"}
-        for p in ("Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya")
-    }
-    assert day_quality(penuh) == pytest.approx(1.0)
-    sebagian = {"Subuh": {"waktu": "Awal waktu", "cara": "Masjid"}}
-    assert day_quality(sebagian) == pytest.approx(0.2)
-    assert day_quality({}) is None
+def test_sentuhan_manual_menang_atas_autofill():
+    """Auto-fill menyentuh tiap hari, jadi ia tidak boleh menutupi jejakmu.
 
-
-def test_sumber_otomatis_menang_atas_konfirmasi():
-    assert sumber_merge(None, "Konfirmasi") == "Konfirmasi"
-    assert sumber_merge("Konfirmasi", "Otomatis") == "Otomatis"
-    assert sumber_merge("Otomatis", "Konfirmasi") == "Otomatis"
+    Kalau Otomatis yang menang, semua hari bertanda Otomatis dan filter
+    "sembunyikan hari yang terisi otomatis" tidak menyaring apa pun.
+    """
+    assert sumber_merge(None, "Otomatis") == "Otomatis"
+    assert sumber_merge("Otomatis", "Konfirmasi") == "Konfirmasi"
+    assert sumber_merge("Otomatis", "Manual") == "Manual"
+    assert sumber_merge("Manual", "Otomatis") == "Manual"
     assert sumber_merge("Konfirmasi", "Manual") == "Manual"
 
 

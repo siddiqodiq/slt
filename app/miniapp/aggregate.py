@@ -16,7 +16,6 @@ from ..config import (
     QABLIYAH_OPTIONS,
     WAKTU_OPTIONS,
 )
-from ..domain import day_quality
 from ..notion import DayRecord
 
 HARI_PENDEK = ("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
@@ -84,7 +83,7 @@ def make_filters(
 class Aggregate:
     filters: Filters
     summary: dict = field(default_factory=dict)
-    heatmap: list[dict] = field(default_factory=list)
+    harian: list[dict] = field(default_factory=list)
     per_prayer: list[dict] = field(default_factory=list)
     sunnah: list[dict] = field(default_factory=list)
     tilawah: list[dict] = field(default_factory=list)
@@ -104,7 +103,7 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
     per_prayer_missing = dict.fromkeys(PRAYERS, 0)
     sunnah_counts: dict[str, int] = {}
     tilawah_total = 0
-    heatmap: list[dict] = []
+    harian: list[dict] = []
     tilawah_series: list[dict] = []
     catatan: list[dict] = []
     days_recorded = 0
@@ -149,10 +148,9 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
             for prayer in filters.prayers:
                 per_prayer_missing[prayer] += 1
 
-        heatmap.append(
+        harian.append(
             {
                 "date": day,
-                "quality": day_quality(entries) if entries else None,
                 "recorded": len(entries),
                 "auto": bool(rec and rec.sumber == "Otomatis"),
                 "tilawah": rec.tilawah if rec and allowed else 0,
@@ -167,7 +165,7 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
         point["ma7"] = round(sum(p["pages"] for p in window) / len(window), 2)
 
     agg = Aggregate(filters=filters)
-    agg.heatmap = heatmap
+    agg.harian = harian
     agg.tilawah = tilawah_series
     agg.catatan = list(reversed(catatan))[:10]
 
@@ -183,7 +181,7 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
         "hari_terisi": days_recorded,
         "hari_total": len(days),
         "streak": current_streak(by_day, filters.end),
-        "hari_otomatis": sum(1 for h in heatmap if h["auto"]),
+        "hari_otomatis": sum(1 for h in harian if h["auto"]),
     }
 
     agg.per_prayer = []

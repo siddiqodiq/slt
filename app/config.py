@@ -65,6 +65,38 @@ SUMBER_ENABLED = True  # §11.2
 # Keputusan §11.4: baris mana yang dituju input manual dini hari.
 TAHAJUD_DAY = "wake"  # "wake" (tanggal saat bangun) | "previous" (sebelum 05:00 = kemarin)
 
+# --- Ambang waktu shalat & auto-fill (§5) ----------------------------------
+
+# Ambang datar waktu Jakarta — bukan jadwal adzan sungguhan, dan sengaja begitu.
+# Menariknya dari API berarti menanggung 403, cache bulanan, dan pergantian bulan
+# demi presisi menit yang tidak mengubah apa pun di sini: yang ditulis selalu
+# "Awal waktu" dan tetap kamu koreksi sesudahnya.
+#
+# Angkanya dipatok sedikit di bawah adzan tipikal Jakarta sepanjang tahun, jadi
+# sesekali baris ditulis beberapa menit lebih awal. Ubah di sini kalau meleset —
+# satu dict, tidak ada tempat lain yang perlu disentuh.
+JAM_SHALAT: dict[str, str] = {
+    "Subuh": "04:30",
+    "Dzuhur": "11:50",
+    "Ashar": "15:10",
+    "Maghrib": "17:50",
+    "Isya": "19:00",
+}
+
+# §5 memperingatkan bahwa menulis sebelum shalat terjadi mencatat sesuatu yang
+# belum terjadi. Keputusanmu: tulis langsung, lalu koreksi. `Sumber = Otomatis`
+# menjaga baris itu tetap bisa dibedakan dari yang kamu sentuh sendiri, dan
+# dashboard punya filter untuk menyembunyikannya.
+AUTOFILL = True
+AUTOFILL_WAKTU = "Awal waktu"
+AUTOFILL_CARA = "Munfarid"
+# Kalau dyno mati lebih lama dari ini, shalat yang terlewat tidak diisi surut.
+# Lebih baik kosong daripada mengarang lima shalat sekaligus saat boot.
+AUTOFILL_CATCHUP = 6 * 3600
+# Selang pemeriksaan penjadwal. Cukup rapat agar telat maksimal setengah menit,
+# cukup jarang agar tidak membebani apa pun.
+TICK_SECONDS = 20
+
 # Cache & mini app
 TTL_ROWS = 60  # detik; penulisan tetap menghapus cache yang terdampak
 MINIAPP_MAX_AGE = 86400  # umur maksimum auth_date initData (§7)
@@ -130,6 +162,13 @@ class Settings:
     sumber_enabled: bool = SUMBER_ENABLED
 
     tahajud_day: str = TAHAJUD_DAY
+
+    jam_shalat: dict[str, str] = field(default_factory=lambda: dict(JAM_SHALAT))
+    autofill: bool = AUTOFILL
+    autofill_waktu: str = AUTOFILL_WAKTU
+    autofill_cara: str = AUTOFILL_CARA
+    autofill_catchup: int = AUTOFILL_CATCHUP
+    tick_seconds: int = TICK_SECONDS
 
     ttl_rows: int = TTL_ROWS
     miniapp_max_age: int = MINIAPP_MAX_AGE

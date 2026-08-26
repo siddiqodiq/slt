@@ -14,10 +14,6 @@
   --c-lewat: #c8503f;
 
   --q0: color-mix(in srgb, var(--fg) 8%, transparent);
-  --q1: #cfe6d8;
-  --q2: #9ed3b4;
-  --q3: #5fb489;
-  --q4: #2f9e68;
 }
 
 * { box-sizing: border-box; }
@@ -78,17 +74,10 @@ body {
 .chart .c-akhir { fill: var(--c-akhir); }
 .chart .c-lewat { fill: var(--c-lewat); }
 .cell.q0 { fill: var(--q0); }
-.cell.q1 { fill: var(--q1); }
-.cell.q2 { fill: var(--q2); }
-.cell.q3 { fill: var(--q3); }
-.cell.q4 { fill: var(--q4); }
-.cell.auto { stroke: var(--fg-redup); stroke-dasharray: 2 2; stroke-width: 1; }
 
 .legenda { display: flex; align-items: center; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
 .legenda .ket { font-size: 11px; color: var(--fg-redup); margin-right: 6px; }
 .petak { width: 11px; height: 11px; border-radius: 3px; display: inline-block; background: var(--q0); }
-.petak.q1 { background: var(--q1); } .petak.q2 { background: var(--q2); }
-.petak.q3 { background: var(--q3); } .petak.q4 { background: var(--q4); }
 .petak.c-awal { background: var(--c-awal); } .petak.c-tengah { background: var(--c-tengah); }
 .petak.c-akhir { background: var(--c-akhir); } .petak.c-lewat { background: var(--c-lewat); }
 

@@ -8,38 +8,16 @@ from datetime import date, datetime, timedelta
 
 from .config import PRAYERS, Settings, get_settings
 
-# Bobot kualitas untuk heatmap & ringkasan. Bukan "skor" yang disimpan —
-# dihitung ulang saat tampil, jadi rumusnya bebas diubah kapan saja (§7).
-WAKTU_WEIGHT = {"Awal waktu": 1.0, "Tengah waktu": 0.66, "Akhir waktu": 0.33, "Lewat waktu": 0.0}
-CARA_WEIGHT = {"Masjid": 1.0, "Berjamaah": 0.75, "Munfarid": 0.4}
-
-
-def day_quality(entries: dict[str, dict]) -> float | None:
-    """0..1 dari lima shalat sehari; None kalau tidak ada satu pun tercatat."""
-    scores = []
-    for prayer in PRAYERS:
-        entry = entries.get(prayer) or {}
-        waktu = entry.get("waktu")
-        if not waktu:
-            continue
-        cara = entry.get("cara")
-        w = WAKTU_WEIGHT.get(waktu, 0.0)
-        c = CARA_WEIGHT.get(cara, 0.4) if cara else 0.4
-        scores.append(0.7 * w + 0.3 * c)
-    if not scores:
-        return None
-    # Shalat yang tidak tercatat dihitung nol supaya hari bolong tidak terlihat sempurna.
-    return sum(scores) / len(PRAYERS)
-
-
 def sumber_merge(existing: str | None, incoming: str) -> str:
-    """Sumber level-hari (§8). Prioritas: Otomatis > Manual > Konfirmasi.
+    """Sumber level-hari (§8). Prioritas: Manual > Konfirmasi > Otomatis.
 
-    Nilai `Otomatis` hanya tersisa pada baris lama — sejak auto-fill dilepas,
-    semua penulisan bot berasal dari tindakanmu sendiri. Dashboard tetap bisa
-    memfilternya lewat "Sembunyikan hari yang terisi otomatis".
+    Urutannya sengaja terbalik dari versi lama. Dulu `Otomatis` menang karena ia
+    langka. Sekarang auto-fill menyentuh setiap hari, jadi kalau ia tetap menang
+    semua hari akan bertanda Otomatis dan filter "sembunyikan yang terisi
+    otomatis" kehilangan gunanya. Yang ingin dijawab kolom ini adalah "apakah
+    hari ini sudah saya sentuh sendiri" — maka tindakanmu yang menang.
     """
-    order = {"Konfirmasi": 0, "Manual": 1, "Otomatis": 2}
+    order = {"Otomatis": 0, "Konfirmasi": 1, "Manual": 2}
     if not existing:
         return incoming
     return existing if order.get(existing, 0) >= order.get(incoming, 0) else incoming

@@ -134,6 +134,30 @@ def edit_cara_keyboard(day: date, prayer: str) -> InlineKeyboardMarkup:
 
 
 
+# --- auto-fill (§5) ---------------------------------------------------------
+
+def autofill_keyboard(day: date, prayer: str) -> InlineKeyboardMarkup:
+    """Tombol koreksi untuk pesan auto-fill.
+
+    Memakai callback `ed|...` yang sama dengan /edit — jadi koreksi dari sini
+    juga menaikkan Sumber hari itu jadi Manual, dan hari yang tak tersentuh
+    tetap bertanda Otomatis.
+    """
+    ds, pi = d2s(day), PRAYERS.index(prayer)
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(CARA_LABEL[c], callback_data=f"ed|sc|{ds}|{pi}|{ci}")
+                for ci, c in enumerate(CARA_OPTIONS)
+            ],
+            [
+                InlineKeyboardButton("🕐 Ubah waktu", callback_data=f"ed|w|{ds}|{pi}"),
+                InlineKeyboardButton("✖ Tutup", callback_data="close"),
+            ],
+        ]
+    )
+
+
 def dashboard_keyboard(url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("📊 Buka Dashboard", web_app=WebAppInfo(url=url))]])
 

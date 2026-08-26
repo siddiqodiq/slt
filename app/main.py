@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     app.state.runtime = runtime
 
     await runtime.start_bot(with_webhook=True)
+    runtime.start_scheduler()
     await runtime.check_schema()
     log.info("Siap. Zona waktu %s, sekarang %s", settings.tz_name, now_local().isoformat(timespec="seconds"))
     try:

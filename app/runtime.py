@@ -1,12 +1,15 @@
-"""Perekat singleton: cache, jadwal, Notion, bot Telegram, penjadwal.
+"""Perekat singleton: cache, Notion, bot Telegram, dan penjadwal auto-fill.
 
-Dipakai bersama oleh proses `web` dan `clock` supaya keduanya berbagi kode yang
-sama — bedanya hanya siapa yang menjalankan penjadwal.
+Semuanya hidup di dalam satu proses `web`. §2 menyebut proses `clock` terpisah;
+penggabungan yang juga ditawarkan di sana dipilih karena penjadwal di sini tidak
+menyimpan keadaan apa pun antar-tick.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+
+from telegram.constants import ParseMode
 
 from .cache import get_cache
 from .config import get_settings
@@ -23,6 +26,7 @@ class Runtime:
         self.repo = get_repo()
         self.telegram = None  # telegram.ext.Application
         self._register_task: asyncio.Task | None = None
+        self._scheduler_task: asyncio.Task | None = None
 
     # --- bot ---------------------------------------------------------------
 
@@ -63,6 +67,11 @@ class Runtime:
             return
         self.telegram = application
 
+    async def stop_scheduler(self) -> None:
+        if self._scheduler_task is not None:
+            self._scheduler_task.cancel()
+            self._scheduler_task = None
+
     async def stop_bot(self) -> None:
         if self._register_task is not None:
             self._register_task.cancel()
@@ -76,6 +85,25 @@ class Runtime:
         self.telegram = None
 
 
+
+    # --- penjadwal auto-fill (§5) ------------------------------------------
+
+    def start_scheduler(self) -> None:
+        """Nyalakan loop auto-fill di dalam proses web.
+
+        §2 menyebut proses `clock` terpisah; menggabungkannya ke `web` menekan
+        biaya jadi satu Basic dyno. Konsekuensinya restart web ikut mereset
+        penjadwal — dapat diterima justru karena penjadwal ini membangun
+        keadaannya ulang dari jam dinding tiap tick, bukan dari timer.
+        """
+        from .scheduler import PrayerScheduler
+
+        if not self.settings.autofill:
+            log.info("AUTOFILL mati — penjadwal tidak dijalankan")
+            return
+        if self.telegram is None:
+            log.warning("Bot tidak aktif — penjadwal tetap jalan, tapi tanpa pemberitahuan")
+        self._scheduler_task = asyncio.create_task(PrayerScheduler(self).run())
 
     # --- pemeriksaan skema saat boot (§10) ---------------------------------
 
@@ -98,7 +126,7 @@ class Runtime:
         else:
             log.info("Skema Notion cocok")
 
-    async def notify_owner(self, text: str) -> None:
+    async def notify_owner(self, text: str, reply_markup=None) -> None:
         target = self.settings.prompt_target
         if self.telegram is None or not target:
             return
@@ -107,12 +135,15 @@ class Runtime:
             await self.telegram.bot.send_message(
                 chat_id=target,
                 text=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup,
                 **({"message_thread_id": thread} if thread else {}),
             )
         except Exception:  # noqa: BLE001
             log.exception("Gagal mengirim pesan ke owner")
 
     async def aclose(self) -> None:
+        await self.stop_scheduler()
         await self.stop_bot()
         await self.repo.client.close()
         await self.cache.close()

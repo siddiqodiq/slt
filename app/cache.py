@@ -170,10 +170,6 @@ def set_cache(cache: Cache) -> None:  # dipakai test
 
 # --- Kunci cache -----------------------------------------------------------
 
-def k_jadwal(kabkota: str, ym: str) -> str:
-    return f"jadwal:{kabkota}:{ym}"
-
-
 def k_prompt_sent(day: str, prayer: str) -> str:
     return f"prompt:{day}:{prayer}"
 

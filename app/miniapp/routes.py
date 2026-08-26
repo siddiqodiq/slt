@@ -103,7 +103,6 @@ async def panel(
         {
             "agg": agg,
             "filters": filters,
-            "svg_heatmap": charts.heatmap_svg(agg.heatmap),
             "svg_prayer": charts.per_prayer_svg(agg.per_prayer),
             "svg_sunnah": charts.sunnah_svg(agg.sunnah, filters.days),
             "svg_tilawah": charts.tilawah_svg(agg.tilawah),

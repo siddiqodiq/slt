@@ -4,7 +4,7 @@
 
 Bot Telegram yang mengisi catatan ibadah ke Notion dan menyajikan dashboard di dalam Telegram — dibangun penuh dengan Python, dengan Notion tetap sebagai penyimpan datanya.
 
-> **Pembaruan:** Fitur pengisian otomatis, *prompt* penjadwal shalat berdasarkan `equran.id`, dan *clock process* **telah dihapus** atas permintaan pengguna. Bot ini sekarang berfungsi sepenuhnya sebagai alat pencatatan manual melalui perintah Telegram. Bagian-bagian dalam dokumen ini yang membahas tentang *auto-fill*, penjadwalan shalat, *fallback*, dan *clock process* sudah tidak lagi relevan dengan kode saat ini.
+> **Pembaruan (26 Agu 2026):** Auto-fill **dihidupkan kembali** dalam mode literal §5 — baris ditulis `Awal waktu + Munfarid` begitu ambang waktu shalat lewat, bukan lewat prompt-lalu-fallback, lalu dikoreksi lewat tombol di pesan itu. **Sumber jadwal §4 (`equran.id`) tidak dipakai:** ambangnya jam datar waktu Jakarta di `JAM_SHALAT`, karena presisi menit tidak mengubah apa yang ditulis sementara API-nya membawa 403, cache bulanan, dan pergantian bulan yang harus diurus. *Clock process* juga tidak dibuat terpisah: penjadwalnya berjalan di dalam proses `web`, sesuai opsi penggabungan di §2. Heatmap kalender di Mini App dihapus atas permintaan pengguna.
 
 | | |
 |---|---|

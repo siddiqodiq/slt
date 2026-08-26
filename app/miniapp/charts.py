@@ -15,68 +15,11 @@ WAKTU_CLASS = {
     "Akhir waktu": "c-akhir",
     "Lewat waktu": "c-lewat",
 }
-HARI_PENDEK = ("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
 BULAN_PENDEK = ("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
 
 
 def _fmt_tgl(day: date) -> str:
     return f"{day.day} {BULAN_PENDEK[day.month - 1]}"
-
-
-def quality_bucket(quality: float | None) -> str:
-    if quality is None:
-        return "q0"
-    if quality >= 0.85:
-        return "q4"
-    if quality >= 0.6:
-        return "q3"
-    if quality >= 0.35:
-        return "q2"
-    return "q1"
-
-
-def heatmap_svg(cells: list[dict]) -> str:
-    """Satu kotak per hari; polanya terbaca tanpa membaca angka (§7)."""
-    if not cells:
-        return '<p class="kosong">Belum ada data pada rentang ini.</p>'
-    size, gap, left, top = 13, 3, 26, 16
-    start = cells[0]["date"]
-    offset = start.weekday()
-    weeks = (offset + len(cells) + 6) // 7
-    width = left + weeks * (size + gap)
-    height = top + 7 * (size + gap) + 4
-
-    parts = [
-        f'<svg class="chart heatmap" viewBox="0 0 {width} {height}" '
-        f'preserveAspectRatio="xMinYMin meet" role="img" aria-label="Heatmap kualitas shalat harian">'
-    ]
-    for row in (0, 2, 4):
-        y = top + row * (size + gap) + size - 2
-        parts.append(f'<text class="tick" x="0" y="{y}">{HARI_PENDEK[row]}</text>')
-
-    last_month = None
-    for index, cell in enumerate(cells):
-        pos = offset + index
-        col, row = divmod(pos, 7)
-        x = left + col * (size + gap)
-        y = top + row * (size + gap)
-        day: date = cell["date"]
-        if day.month != last_month and row <= 1:
-            parts.append(f'<text class="tick" x="{x}" y="10">{BULAN_PENDEK[day.month - 1]}</text>')
-            last_month = day.month
-        klass = quality_bucket(cell["quality"])
-        extra = " auto" if cell.get("auto") else ""
-        tip = (
-            f"{_fmt_tgl(day)} · {cell['recorded']}/5 tercatat"
-            + (" · otomatis" if cell.get("auto") else "")
-            + (" · ada catatan" if cell.get("catatan") else "")
-        )
-        parts.append(
-            f'<rect class="cell {klass}{extra}" x="{x}" y="{y}" width="{size}" height="{size}" rx="3">'
-            f"<title>{escape(tip)}</title></rect>"
-        )
-    parts.append("</svg>")
-    return "".join(parts)
 
 
 def per_prayer_svg(rows: list[dict]) -> str:

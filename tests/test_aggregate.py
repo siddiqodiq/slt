@@ -90,8 +90,8 @@ def test_streak_putus_saat_ada_lewat_waktu():
     assert current_streak(by_day, HARI_INI) == 2
 
 
-def test_heatmap_menutupi_seluruh_rentang_termasuk_hari_kosong():
+def test_deret_harian_menutupi_seluruh_rentang_termasuk_hari_kosong():
     agg = aggregate([rec(HARI_INI)], make_filters("30", today=HARI_INI))
-    assert len(agg.heatmap) == 30
-    assert agg.heatmap[0]["quality"] is None
-    assert agg.heatmap[-1]["quality"] is not None
+    assert len(agg.harian) == 30
+    assert agg.harian[0]["recorded"] == 0
+    assert agg.harian[-1]["recorded"] > 0
