@@ -71,6 +71,13 @@ MINIAPP_MAX_AGE = 86400  # umur maksimum auth_date initData (§7)
 LOG_LEVEL = "INFO"
 
 
+def _str(name: str, default: str = "") -> str:
+    """Ambil env var tanpa spasi di ujung — salah tempel di dashboard Heroku
+    gampang menyelipkan spasi, dan itu diam-diam merusak URL & token."""
+    raw = os.getenv(name)
+    return raw.strip() if raw else default
+
+
 def _bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None or raw == "":
@@ -89,19 +96,19 @@ def _int(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class Settings:
     # === Dari config var: rahasia & identitas ==============================
-    bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
+    bot_token: str = field(default_factory=lambda: _str("TELEGRAM_BOT_TOKEN"))
     owner_id: int = field(default_factory=lambda: _int("TELEGRAM_OWNER_ID", 0))
     # Tujuan prompt otomatis (§6). Kosong = japri owner.
     prompt_chat_id: int = field(default_factory=lambda: _int("TELEGRAM_PROMPT_CHAT_ID", 0))
     prompt_thread_id: int = field(default_factory=lambda: _int("TELEGRAM_PROMPT_THREAD_ID", 0))
-    webhook_secret: str = field(default_factory=lambda: os.getenv("TELEGRAM_WEBHOOK_SECRET", ""))
-    notion_token: str = field(default_factory=lambda: os.getenv("NOTION_TOKEN", ""))
-    dev_bypass_token: str = field(default_factory=lambda: os.getenv("MINIAPP_DEV_TOKEN", ""))
+    webhook_secret: str = field(default_factory=lambda: _str("TELEGRAM_WEBHOOK_SECRET"))
+    notion_token: str = field(default_factory=lambda: _str("NOTION_TOKEN"))
+    dev_bypass_token: str = field(default_factory=lambda: _str("MINIAPP_DEV_TOKEN"))
 
     # === Dari config var: beda antara laptop dan Heroku ====================
-    base_url: str = field(default_factory=lambda: os.getenv("BASE_URL", "").rstrip("/"))
+    base_url: str = field(default_factory=lambda: _str("BASE_URL").rstrip("/"))
     redis_url: str = field(
-        default_factory=lambda: os.getenv("REDIS_URL") or os.getenv("REDIS_TLS_URL", "")
+        default_factory=lambda: _str("REDIS_URL") or _str("REDIS_TLS_URL")
     )
     use_polling: bool = field(default_factory=lambda: _bool("USE_POLLING", False))
 
