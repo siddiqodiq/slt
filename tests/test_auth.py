@@ -61,3 +61,27 @@ def test_token_bot_salah_ditolak():
 def test_init_data_kosong_ditolak():
     with pytest.raises(InitDataError):
         validate_init_data("", TOKEN)
+
+
+def test_signature_diterima_baik_ikut_hash_maupun_tidak():
+    """Telegram (Bot API 8.0) mengirim `signature` untuk validasi Ed25519.
+
+    Klien lama tidak mengirimnya, dan yang mengirim tidak selalu memasukkannya
+    ke data-check-string. Menolak salah satu bentuk berarti menolak sesi yang
+    sah — dan gagalnya senyap: pesannya hanya "hash tidak cocok".
+    """
+    dasar = {
+        "auth_date": str(int(time.time())),
+        "query_id": "AAF",
+        "user": json.dumps({"id": 42, "first_name": "Uji"}, separators=(",", ":")),
+    }
+    dengan_sig = {**dasar, "signature": "Ed25519_abc-123"}
+
+    # hash dihitung tanpa signature, tapi signature tetap ikut terkirim
+    check = "\n".join(f"{k}={dasar[k]}" for k in sorted(dasar))
+    secret = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
+    digest = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    luar_hash = urlencode({**dengan_sig, "hash": digest})
+
+    for raw in (sign(dasar), luar_hash, sign(dengan_sig)):
+        assert user_id_of(validate_init_data(raw, TOKEN)) == 42

@@ -5,6 +5,7 @@ sama — bedanya hanya siapa yang menjalankan penjadwal.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from .cache import get_cache
@@ -21,6 +22,7 @@ class Runtime:
         self.cache = get_cache()
         self.repo = get_repo()
         self.telegram = None  # telegram.ext.Application
+        self._register_task: asyncio.Task | None = None
 
     # --- bot ---------------------------------------------------------------
 
@@ -44,7 +46,12 @@ class Runtime:
                 await register_commands(application)
                 log.info("Bot berjalan dengan long polling (mode uji lokal)")
             elif with_webhook:
-                await install_webhook(application, self.settings)
+                # Berlatar, bukan ditunggu: install_webhook sengaja memberi jeda
+                # supaya uvicorn sempat mengikat $PORT sebelum Telegram mengetuk.
+                # Menunggunya di sini menahan boot dan bisa membuat dyno dibunuh.
+                self._register_task = asyncio.create_task(
+                    install_webhook(application, self.settings)
+                )
         except Exception:
             # Token salah atau Telegram tak terjangkau saat boot: web tetap hidup
             # supaya /health terbaca dan penyebabnya kelihatan di log.
@@ -57,6 +64,9 @@ class Runtime:
         self.telegram = application
 
     async def stop_bot(self) -> None:
+        if self._register_task is not None:
+            self._register_task.cancel()
+            self._register_task = None
         if self.telegram is None:
             return
         if self.telegram.updater is not None and self.telegram.updater.running:

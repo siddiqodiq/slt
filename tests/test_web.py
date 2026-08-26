@@ -88,4 +88,8 @@ def test_webhook_secret_benar_tapi_bot_belum_siap(client):
 def test_health(client):
     resp = client.get("/health")
     assert resp.status_code == 200
-    assert resp.text.startswith("ok")
+    body = resp.json()
+    assert body["ok"] is True
+    # Melaporkan ada/tidaknya config var, tidak pernah nilainya.
+    assert body["config"]["TELEGRAM_BOT_TOKEN"] is True
+    assert "8822858925" not in resp.text

@@ -66,17 +66,31 @@ async def telegram_webhook(
     return JSONResponse({"ok": True})
 
 
-@app.get("/health", response_class=PlainTextResponse)
-async def health() -> str:
+@app.get("/health")
+async def health() -> dict:
+    """Kesehatan + config var mana yang terbaca.
+
+    Hanya melaporkan ada/tidaknya, tidak pernah nilainya — supaya endpoint ini
+    aman dibuka dari mana saja sambil tetap menjawab "sudah diisi tapi kok tidak
+    terbaca", keluhan yang paling sering muncul setelah salah tempel di Heroku.
+    """
     runtime = get_runtime()
-    bits = [
-        "ok",
-        f"tz={runtime.settings.tz_name}",
-        f"waktu={now_local().isoformat(timespec='seconds')}",
-        f"cache={runtime.cache.kind}",
-        f"bot={'aktif' if runtime.telegram else 'mati'}",
-    ]
-    return " ".join(bits)
+    s = runtime.settings
+    return {
+        "ok": True,
+        "tz": s.tz_name,
+        "waktu": now_local().isoformat(timespec="seconds"),
+        "cache": runtime.cache.kind,
+        "bot": "aktif" if runtime.telegram else "mati",
+        "webapp_url": s.webapp_url,
+        "config": {
+            "TELEGRAM_BOT_TOKEN": bool(s.bot_token),
+            "TELEGRAM_OWNER_ID": bool(s.owner_id),
+            "TELEGRAM_WEBHOOK_SECRET": bool(s.webhook_secret),
+            "NOTION_TOKEN": bool(s.notion_token),
+            "BASE_URL": bool(s.base_url),
+        },
+    }
 
 
 @app.get("/", response_class=PlainTextResponse)

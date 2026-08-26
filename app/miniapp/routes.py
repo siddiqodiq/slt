@@ -42,6 +42,12 @@ def require_owner(init_data: str | None, dev_token: str | None) -> int:
     return uid
 
 
+# Webview Telegram menyimpan cache dengan agresif — tanpa ini versi baru tidak
+# muncul walau sudah di-deploy, dan halaman lama bisa terus dipakai berhari-hari
+# dengan initData yang sudah kedaluwarsa.
+NO_STORE = {"Cache-Control": "no-store"}
+
+
 @router.get("/app", response_class=HTMLResponse)
 async def shell(request: Request):
     """Kerangka halaman. Tidak memuat data apa pun sebelum initData tervalidasi."""
@@ -55,6 +61,7 @@ async def shell(request: Request):
             "hari_pilihan": HARI_PILIHAN,
             "today": now_local().date().isoformat(),
         },
+        headers=NO_STORE,
     )
 
 
@@ -102,6 +109,7 @@ async def panel(
             "svg_tilawah": charts.tilawah_svg(agg.tilawah),
             "waktu_options": WAKTU_OPTIONS,
         },
+        headers=NO_STORE,
     )
 
 

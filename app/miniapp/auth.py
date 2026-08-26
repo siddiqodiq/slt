@@ -28,13 +28,26 @@ def validate_init_data(init_data: str, bot_token: str, max_age: int = 86400) -> 
     received_hash = pairs.pop("hash", "")
     if not received_hash:
         raise InitDataError("initData tanpa hash")
-    pairs.pop("signature", None)  # milik Ed25519 third-party validation, bukan bagian HMAC
 
-    data_check_string = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
     secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
-    expected = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, received_hash):
+
+    # `signature` (Ed25519, Bot API 8.0) dipakai untuk validasi pihak ketiga dan
+    # tidak ikut dihitung dalam HMAC. Klien lama tidak mengirimnya sama sekali,
+    # jadi kedua bentuk dicoba — menolak salah satunya berarti menolak sesi yang
+    # sebenarnya sah, dan gagalnya senyap: hanya "hash tidak cocok".
+    candidates = [{k: v for k, v in pairs.items() if k != "signature"}]
+    if "signature" in pairs:
+        candidates.append(dict(pairs))
+
+    for fields in candidates:
+        dcs = "\n".join(f"{k}={fields[k]}" for k in sorted(fields))
+        expected = hmac.new(secret_key, dcs.encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(expected, received_hash):
+            break
+    else:
         raise InitDataError("hash initData tidak cocok")
+
+    pairs.pop("signature", None)
 
     try:
         auth_date = int(pairs.get("auth_date", "0"))
