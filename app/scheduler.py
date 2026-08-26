@@ -20,8 +20,11 @@ Dua hal yang tetap membuat ini bukan sekadar "pasang timer":
 
 Isya tidak menyeberangi tengah malam pada mode ini — penulisan terjadi saat
 ambang lewat, bukan di akhir rentang, jadi Isya selalu jatuh pada tanggal ia
-dimulai. Hari kemarin tetap ikut diperiksa supaya Isya yang terlewat karena dyno
-mati sesudah pukul 19:00 masih bisa menyusul selepas tengah malam.
+dimulai. Hari kemarin tetap diperiksa sampai ambang Subuh hari ini, supaya Isya
+yang terlewat karena dyno mati sesudah pukul 19:00 masih bisa menyusul.
+
+Tidak ada batas umur di dalam hari berjalan: boot pukul 15:00 mengisi Subuh,
+Dzuhur, dan apa pun yang ambangnya sudah lewat hari itu.
 """
 from __future__ import annotations
 
@@ -78,17 +81,25 @@ class PrayerScheduler:
         if not self.s.autofill:
             return
 
-        # Kemarin ikut diperiksa demi Isya yang ambangnya lewat sebelum tengah malam.
-        for day in (now.date() - timedelta(days=1), now.date()):
-            for prayer, start in self.times(day).items():
-                if start > now:
-                    continue
-                if (now - start).total_seconds() > self.s.autofill_catchup:
-                    continue
-                if not await self.rt.cache.claim(k_prompt_sent(day.isoformat(), prayer),
-                                                 ttl=CLAIM_TTL):
-                    continue
-                await self._fill(day, prayer, start)
+        # Hari ini: apa pun yang ambangnya sudah lewat, tanpa batas umur — boot
+        # tengah hari harus tetap menyusul Subuh dan Dzuhur.
+        rencana = [(now.date(), p) for p in PRAYERS]
+
+        # Kemarin: hanya Isya, dan hanya sampai ambang Subuh hari ini. Isya satu-
+        # satunya yang sah menyeberang tengah malam; membuka seluruh hari kemarin
+        # berarti restart dini hari menambal sehari penuh yang tidak pernah terjadi.
+        subuh = self.times(now.date()).get(PRAYERS[0])
+        if subuh is not None and now < subuh:
+            rencana.insert(0, (now.date() - timedelta(days=1), PRAYERS[-1]))
+
+        for day, prayer in rencana:
+            start = self.times(day).get(prayer)
+            if start is None or start > now:
+                continue
+            if not await self.rt.cache.claim(k_prompt_sent(day.isoformat(), prayer),
+                                             ttl=CLAIM_TTL):
+                continue
+            await self._fill(day, prayer, start)
 
     async def _fill(self, day: date, prayer: str, start: datetime) -> None:
         rec = await self.rt.repo.get_day(day)

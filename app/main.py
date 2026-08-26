@@ -84,6 +84,11 @@ async def health() -> dict:
         "cache": runtime.cache.kind,
         "bot": "aktif" if runtime.telegram else "mati",
         "webapp_url": s.webapp_url,
+        "autofill": {
+            "penjadwal": runtime.scheduler_state,
+            "tulis": f"{s.autofill_waktu} · {s.autofill_cara}",
+            "ambang": s.jam_shalat,
+        },
         "config": {
             "TELEGRAM_BOT_TOKEN": bool(s.bot_token),
             "TELEGRAM_OWNER_ID": bool(s.owner_id),

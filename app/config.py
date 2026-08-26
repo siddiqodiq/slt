@@ -90,9 +90,12 @@ JAM_SHALAT: dict[str, str] = {
 AUTOFILL = True
 AUTOFILL_WAKTU = "Awal waktu"
 AUTOFILL_CARA = "Munfarid"
-# Kalau dyno mati lebih lama dari ini, shalat yang terlewat tidak diisi surut.
-# Lebih baik kosong daripada mengarang lima shalat sekaligus saat boot.
-AUTOFILL_CATCHUP = 6 * 3600
+# Penjadwal hanya pernah melihat hari ini dan kemarin, tidak lebih jauh. Jadi
+# boot tengah hari mengisi semua shalat yang ambangnya sudah lewat hari itu —
+# perilaku yang kamu minta — tanpa membangkitkan data seminggu ke belakang.
+# Konsekuensinya: dyno yang mati seharian penuh akan mengisi lima shalat
+# sekaligus saat hidup lagi. Filter Sumber=Otomatis di dashboard yang menjaga
+# hari seperti itu tetap bisa dibedakan.
 # Selang pemeriksaan penjadwal. Cukup rapat agar telat maksimal setengah menit,
 # cukup jarang agar tidak membebani apa pun.
 TICK_SECONDS = 20
@@ -167,7 +170,6 @@ class Settings:
     autofill: bool = AUTOFILL
     autofill_waktu: str = AUTOFILL_WAKTU
     autofill_cara: str = AUTOFILL_CARA
-    autofill_catchup: int = AUTOFILL_CATCHUP
     tick_seconds: int = TICK_SECONDS
 
     ttl_rows: int = TTL_ROWS

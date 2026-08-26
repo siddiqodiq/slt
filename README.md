@@ -20,6 +20,12 @@ tetap bisa disaring di dashboard.
 | Maghrib | 17:50 |
 | Isya | 19:00 |
 
+Penjadwal hanya melihat hari ini dan kemarin. Boot tengah hari menyusul semua
+shalat yang ambangnya sudah lewat **hari itu** — tidak ada batas umur di dalam
+hari berjalan. Dari kemarin hanya Isya yang masih bisa menyusul, dan hanya sampai
+ambang Subuh hari ini. `/health` melaporkan status penjadwal dan ambang yang
+sedang dipakai dyno yang berjalan.
+
 ```
 app/
   config.py      Konstanta terpusat; config var hanya untuk rahasia & identitas

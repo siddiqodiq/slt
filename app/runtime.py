@@ -67,6 +67,20 @@ class Runtime:
             return
         self.telegram = application
 
+    @property
+    def scheduler_state(self) -> str:
+        """Dilaporkan lewat /health — tanpa ini tidak ada cara melihat dari luar
+        apakah penjadwal benar-benar hidup di dyno yang sedang berjalan."""
+        if not self.settings.autofill:
+            return "mati (AUTOFILL=False)"
+        task = self._scheduler_task
+        if task is None:
+            return "belum dijalankan"
+        if task.done():
+            exc = task.exception() if not task.cancelled() else None
+            return f"berhenti: {exc!r}" if exc else "berhenti"
+        return "jalan"
+
     async def stop_scheduler(self) -> None:
         if self._scheduler_task is not None:
             self._scheduler_task.cancel()

@@ -102,22 +102,29 @@ async def test_tidak_menimpa_yang_sudah_kamu_catat(isi):
     assert not any(w[1] == "Maghrib" for w in repo.writes)
 
 
-async def test_shalat_yang_lewat_terlalu_lama_tidak_diisi_surut(rt):
-    """Dyno mati seharian tidak boleh membuat lima shalat muncul sekaligus.
+async def test_boot_tengah_hari_menyusul_semua_yang_ambangnya_sudah_lewat(rt):
+    """Deploy pukul 15:05 harus tetap mengisi Subuh dan Dzuhur hari itu.
 
-    Pada 21:20, Ashar (15:10) tepat di luar jendela 6 jam sementara Maghrib
-    (17:50) masih di dalamnya. Batas itu yang diuji, bukan sekadar "ada yang
-    tersaring".
+    Ini yang dulu gagal: jendela umur 6 jam membuang Subuh (04:30) diam-diam.
     """
-    await PrayerScheduler(rt).tick(dt(HARI, "21:20"))
-    tertulis = [w[1] for w in rt.repo.writes]
-    assert tertulis == ["Maghrib", "Isya"]
+    await PrayerScheduler(rt).tick(dt(HARI, "15:05"))
+    assert [w[1] for w in rt.repo.writes] == ["Subuh", "Dzuhur"]
 
 
 async def test_isya_selepas_tengah_malam_masuk_ke_tanggal_ia_mulai(rt):
     kemarin = HARI - timedelta(days=1)
     await PrayerScheduler(rt).tick(dt(HARI, "00:20"))
     assert rt.repo.writes == [(kemarin, "Isya", "Awal waktu", "Munfarid", "Otomatis")]
+
+
+async def test_kemarin_ditutup_setelah_ambang_subuh_hari_ini(rt):
+    """Lewat Subuh, hari kemarin bukan lagi urusan auto-fill.
+
+    Tanpa batas ini, tiap tick sepanjang hari akan terus menawarkan lima shalat
+    kemarin untuk ditambal.
+    """
+    await PrayerScheduler(rt).tick(dt(HARI, "04:31"))
+    assert {w[0] for w in rt.repo.writes} == {HARI}
 
 
 async def test_klaim_gagal_berarti_tidak_menulis(rt):
