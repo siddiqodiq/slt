@@ -96,16 +96,27 @@
       const dev = new URLSearchParams(location.search).get('dev');
       if (dev) headers['X-Dev-Token'] = dev;
       document.body.setAttribute('hx-headers', JSON.stringify(headers));
+      // Dua sebab paling sering dari 401 tidak terlihat di sisi server: SDK
+      // Telegram gagal dimuat, atau halaman dibuka bukan lewat tombol web_app.
+      window.__diag = !tg
+        ? 'SDK telegram-web-app.js tidak termuat di halaman ini.'
+        : (!tg.initData ? 'Telegram membuka halaman ini tanpa initData — kemungkinan bukan lewat tombol web_app.' : '');
     })();
   </script>
   <script src="/static/htmx.min.js"></script>
   <script>
     document.body.addEventListener('htmx:responseError', function (event) {
+      const xhr = event.detail.xhr;
+      let sebab = '';
+      try { sebab = (JSON.parse(xhr.responseText) || {}).detail || ''; } catch (e) { /* bukan JSON */ }
+      const pesan = xhr.status === 401
+        ? 'Sesi Telegram tidak valid. Tutup lalu buka lagi mini app dari bot.'
+        : 'Kode ' + xhr.status + '. Coba lagi sebentar.';
+      const detail = window.__diag || sebab;
+      const esc = (t) => t.replace(/[<&>]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;' }[c]));
       document.getElementById('panel').innerHTML =
-        '<div class="kartu galat"><b>Gagal memuat data</b><p>' +
-        (event.detail.xhr.status === 401
-          ? 'Sesi Telegram tidak valid. Tutup lalu buka lagi mini app dari bot.'
-          : 'Kode ' + event.detail.xhr.status + '. Coba lagi sebentar.') + '</p></div>';
+        '<div class="kartu galat"><b>Gagal memuat data</b><p>' + pesan + '</p>' +
+        (detail ? '<p class="sub">' + esc(detail) + '</p>' : '') + '</div>';
     });
   </script>
 </body>
