@@ -18,8 +18,22 @@ from ..config import (
     QABLIYAH_OPTIONS,
     WAKTU_OPTIONS,
 )
-from ..data import load_records
+from ..data import load_history, load_records
+from .. import state
 from ..domain import catatan_day
+from ..sedekah import InputSedekah, baris_ket, hari_berjalan, parse_input, xp_ke
+from ..gamify import (
+    baris_level,
+    baris_streak,
+    baris_tahajud,
+    compute_level,
+    compute_streak,
+    lewat_info,
+    malam_pekan_ini,
+    pesan_lewat,
+    rawan_semua,
+    tahajud_streak,
+)
 from ..miniapp.aggregate import aggregate, make_filters
 from ..timeutil import fmt_tanggal, label_hari, now_local
 from .keyboards import (
@@ -33,6 +47,8 @@ from .keyboards import (
     isi_keyboard,
     main_menu_keyboard,
     s2d,
+    sedekah_catat_keyboard,
+    sedekah_undo_keyboard,
 )
 
 log = logging.getLogger(__name__)
@@ -44,6 +60,8 @@ HELP = """<b>Bot Ibadah</b>
 /tilawah &lt;n&gt; — tambah halaman (mis. <code>/tilawah 5</code>, <code>/tilawah =12</code> untuk menimpa)
 /catatan &lt;teks&gt; — catatan refleksi hari ini
 /edit — koreksi shalat hari ini atau kemarin
+/sedekah &lt;keterangan&gt; — catat sedekah tambahan (mis. <code>/sedekah kotak masjid</code>)
+/sedekahrutin — sedekah otomatis harian (<code>on</code> / <code>off</code>)
 /rekap — ringkasan 7 &amp; 30 hari
 /dashboard — buka Mini App"""
 
@@ -144,10 +162,26 @@ async def cmd_hariini(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     lines.append(f"Qabliyah: {', '.join(rec.qabliyah) if rec and rec.qabliyah else '—'}")
     lines.append(f"Ba'diyah: {', '.join(rec.badiyah) if rec and rec.badiyah else '—'}")
     lines += ["", f"📖 Tilawah: <b>{rec.tilawah if rec else 0}</b> halaman"]
+    if rec and rec.sedekah_ada:
+        bagian = []
+        if rec.sedekah_rutin:
+            bagian.append("rutin ✓")
+        if rec.sedekah_n:
+            bagian.append(f"tambahan {rec.sedekah_n}×")
+        lines.append("🤲 Sedekah: " + " · ".join(bagian))
+    else:
+        lines.append("🤲 Sedekah: — <i>(/sedekah untuk mencatat)</i>")
     if rec and rec.catatan:
         lines.append(f"📝 {html.escape(rec.catatan)}")
     if rec and rec.sumber:
         lines.append(f"<i>Sumber: {rec.sumber}</i>")
+    history = await load_history(day, rt.repo, rt.cache)
+    lv = compute_level(history, day)
+    lines += ["", baris_level(lv) + f" · hari ini +{lv.xp_hari_ini}"]
+    lines.append(baris_streak(compute_streak(history, day), day))
+    lines.append(baris_tahajud(tahajud_streak(history, day), malam_pekan_ini(history, day)))
+    for info in rawan_semua(history, day):
+        lines.append(f"⚠️ {info.prayer}: {info.pekan_ini}× lewat waktu dalam 7 hari")
     await reply(update, "\n".join(lines))
 
 
@@ -232,7 +266,14 @@ async def cmd_rekap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if days == 30:
             jarang = ", ".join(item["name"] for item in agg.sunnah[:3])
             parts.append(f"• Sunnah paling jarang: {jarang}")
-    parts.append(f"\n🔥 Streak berjalan: <b>{aggregate(records, make_filters('30', today=day)).summary['streak']}</b> hari")
+    history = await load_history(day, rt.repo, rt.cache)
+    parts.append("\n" + baris_level(compute_level(history, day)))
+    parts.append(baris_streak(compute_streak(history, day), day))
+    parts.append(baris_tahajud(tahajud_streak(history, day), malam_pekan_ini(history, day)))
+    rawan = rawan_semua(history, day)
+    if rawan:
+        parts.append("\n<b>Perlu perhatian</b>")
+        parts += [f"⚠️ {i.prayer}: {i.pekan_ini}× lewat waktu dalam 7 hari" for i in rawan]
     await reply(update, "\n".join(parts))
 
 
@@ -256,6 +297,128 @@ async def cmd_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 
+# --- sedekah -----------------------------------------------------------------
+# Tanpa nominal: yang dicatat hanya "ada sedekah" + keterangan.
+
+def _daftar_sedekah(rec) -> str:
+    if not rec or not rec.sedekah_ada:
+        return "Belum ada sedekah tercatat."
+    lines = ["💧 Sedekah rutin"] if rec.sedekah_rutin else []
+    lines += [f"🤲 {html.escape(b)}" for b in rec.sedekah_ket.splitlines() if b.strip()]
+    return "\n".join(lines)
+
+
+async def _catat_sedekah(rt, day: date, inp: InputSedekah) -> tuple[str, object]:
+    rec = await rt.repo.add_sedekah(day, baris_ket(inp))
+    xp = xp_ke(rec.sedekah_n)
+    teks = (
+        f"🤲 Sedekah tambahan <b>#{rec.sedekah_n}</b> {'hari ini' if day == today_of(rt) else label_hari(day)}"
+        f"{f' (+{xp} XP)' if xp else ''}\n"
+        f"• {html.escape(baris_ket(inp))}"
+    )
+    return teks, sedekah_undo_keyboard(day, rec.sedekah_n)
+
+
+@owner_only
+async def cmd_sedekah(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    rt = rt_of(context)
+    today = today_of(rt)
+    inp = parse_input(context.args or [])
+    day = today - timedelta(days=1) if inp.kemarin else today
+    if not inp.keterangan:
+        rec = await rt.repo.get_day(day)
+        await update.effective_message.reply_text(
+            f"<b>Sedekah {label_hari(day)}</b>\n{_daftar_sedekah(rec)}\n\n"
+            "Catat: <code>/sedekah kotak masjid</code>\n"
+            "Untuk kemarin: <code>/sedekah kemarin santunan anak yatim</code>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=sedekah_catat_keyboard(day),
+        )
+        return
+    teks, kb = await _catat_sedekah(rt, day, inp)
+    await update.effective_message.reply_text(teks, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+
+@owner_only
+async def cmd_sedekahrutin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    rt = rt_of(context)
+    today = today_of(rt)
+    arg = (context.args[0] if context.args else "").strip().lower()
+
+    if arg in ("on", "aktif", "nyala"):
+        st = state.load()
+        state.update(rutin_aktif=True, rutin_sejak=today.isoformat(),
+                     rutin_mulai=st["rutin_mulai"] or today.isoformat())
+        await rt.repo.set_sedekah_rutin(today, True)
+        await reply(update, "💧 Sedekah rutin <b>aktif</b> — dicentang otomatis tiap hari mulai hari ini.")
+        return
+    if arg in ("off", "berhenti", "mati"):
+        state.update(rutin_aktif=False, rutin_mulai=None)  # rangkaian tak-putus berakhir
+        await reply(update, "⏸ Sedekah rutin <b>dihentikan</b>. Riwayat sebelumnya tetap tersimpan.\n"
+                            "Nyalakan lagi: <code>/sedekahrutin on</code>")
+        return
+    if arg == "sejak" and len(context.args) > 1:
+        try:
+            mulai = date.fromisoformat(context.args[1])
+        except ValueError:
+            mulai = None
+        if not mulai or mulai > today:
+            await reply(update, "Format: <code>/sedekahrutin sejak 2026-01-01</code>")
+            return
+        state.update(rutin_aktif=True, rutin_mulai=mulai.isoformat())
+        await reply(update, f"💧 Tercatat: sedekah rutin berjalan sejak <b>{fmt_tanggal(mulai)}</b> "
+                            f"({(today - mulai).days + 1} hari).")
+        return
+    if arg:
+        await reply(update, "Format: <code>/sedekahrutin on</code>, <code>off</code>, "
+                            "atau <code>sejak 2026-01-01</code>")
+        return
+
+    st = state.load()
+    status = "aktif ✅" if st["rutin_aktif"] else "nonaktif ⏸"
+    history = await load_history(today, rt.repo, rt.cache)
+    hari = sum(1 for r in history if r.day.year == today.year and r.day.month == today.month and r.sedekah_rutin)
+    jalan = hari_berjalan(st, today)
+    await reply(
+        update,
+        f"💧 <b>Sedekah rutin</b>: {status}"
+        + (f"\nBerjalan <b>{jalan} hari</b> tanpa putus sejak {fmt_tanggal(date.fromisoformat(st['rutin_mulai']))}"
+           if jalan else "")
+        + f"\nBulan ini tercatat {hari} hari\n\n"
+        "<code>/sedekahrutin off</code> / <code>on</code> — jeda / lanjutkan",
+    )
+
+
+async def _on_sedekah(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str) -> None:
+    rt = rt_of(context)
+    query = update.callback_query
+    parts = data.split("|")
+    if parts[0] == "sr":
+        if parts[1] == "off":
+            state.update(rutin_aktif=False, rutin_mulai=None)
+            await query.answer("Sedekah rutin dihentikan")
+            await query.edit_message_text("⏸ Sedekah rutin dihentikan. Nyalakan lagi: /sedekahrutin on")
+        else:
+            await query.answer("Alhamdulillah")
+            await query.edit_message_text("💧 Saldo terisi, sedekah rutin tetap berjalan. Semoga menjadi amal jariyah.")
+        return
+    day = s2d(parts[2])
+    if parts[1] == "a":
+        teks, kb = await _catat_sedekah(rt, day, InputSedekah(False, ""))
+        await query.answer("Tercatat")
+        await query.edit_message_text(teks, parse_mode=ParseMode.HTML, reply_markup=kb)
+    elif parts[1] == "u":
+        n = int(parts[3])
+        rec = await rt.repo.undo_sedekah(day, n)
+        if rec is None:
+            await query.answer("Tidak bisa dibatalkan — sudah ada sedekah yang lebih baru. Edit langsung di Notion.",
+                               show_alert=True)
+            return
+        await query.answer("Dibatalkan")
+        await query.edit_message_text(f"↩️ Sedekah #{n} dibatalkan.\n\n{_daftar_sedekah(rec)}",
+                                      parse_mode=ParseMode.HTML)
+
+
 # --- callback ---------------------------------------------------------------
 
 @owner_only
@@ -273,6 +436,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await _on_isi(update, context, data)
         elif data.startswith("ed|"):
             await _on_edit(update, context, data)
+        elif data.startswith(("sd|", "sr|")):
+            await _on_sedekah(update, context, data)
         else:
             await query.answer()
     except Exception as exc:  # noqa: BLE001
@@ -295,6 +460,13 @@ async def _on_isi(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str)
         name = CHECKBOX_SUNNAH[i]
         value = await rt.repo.toggle_check(day, name)
         note = f"{name} {'✅' if value else 'dilepas'}"
+        if name == "Tahajud" and value:
+            try:
+                history = await load_history(today_of(rt), rt.repo, rt.cache)
+                streak = tahajud_streak(history, today_of(rt))
+                note += f" · 🌙 {streak.current} malam beruntun (rekor {streak.best})"
+            except Exception:  # noqa: BLE001
+                log.exception("Gagal menghitung streak tahajud")
     elif kind == "q":
         value_name = QABLIYAH_OPTIONS[i]
         current = await rt.repo.toggle_multi(day, rt.settings.prop_qabliyah, value_name)
@@ -345,8 +517,15 @@ async def _on_edit(update: Update, context: ContextTypes.DEFAULT_TYPE, data: str
         waktu = WAKTU_OPTIONS[int(parts[4])]
         await rt.repo.set_prayer(day, prayer, waktu, None, "Manual")
         await query.answer(f"{prayer}: {waktu}")
+        motivasi = ""
+        if waktu == "Lewat waktu":
+            try:
+                history = await load_history(today, rt.repo, rt.cache)
+                motivasi = "\n\n" + pesan_lewat(lewat_info(history, prayer, day), day)
+            except Exception:  # noqa: BLE001
+                log.exception("Gagal menyusun pesan motivasi")
         await query.edit_message_text(
-            f"<b>{prayer}</b> · {label_hari(day)} — Waktu: {WAKTU_LABEL[waktu]}\nSekarang pilih Cara:",
+            f"<b>{prayer}</b> · {label_hari(day)} — Waktu: {WAKTU_LABEL[waktu]}{motivasi}\n\nSekarang pilih Cara:",
             parse_mode=ParseMode.HTML,
             reply_markup=edit_cara_keyboard(day, prayer),
         )
@@ -390,6 +569,8 @@ def register(application) -> None:
     application.add_handler(CommandHandler("catatan", cmd_catatan))
     application.add_handler(CommandHandler("edit", cmd_edit))
     application.add_handler(CommandHandler("rekap", cmd_rekap))
+    application.add_handler(CommandHandler("sedekah", cmd_sedekah))
+    application.add_handler(CommandHandler("sedekahrutin", cmd_sedekahrutin))
     application.add_handler(CommandHandler("dashboard", cmd_dashboard))
     application.add_handler(CallbackQueryHandler(on_callback))
     application.add_error_handler(on_error)

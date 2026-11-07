@@ -1,0 +1,69 @@
+{# Kartu Pohon Amal — dimuat sekali, tidak ikut filter rentang. #}
+<section class="kartu pohon" data-level="{{ lv.level }}" data-nama="{{ lv.nama }}">
+  <div class="pohon-atas">
+    <button type="button" class="avatar-tombol" id="avatar" aria-label="Ketuk pohon amal"
+            data-pesan='{{ pesan|tojson }}'>
+      {{ svg|safe }}
+      <span class="ketuk-hint">ketuk</span>
+    </button>
+    <div class="pohon-info">
+      <span class="lv-badge">Lv {{ lv.level }}</span>
+      <h2 class="lv-nama">{{ lv.nama }}</h2>
+      <p class="lv-makna">{{ lv.makna }}</p>
+      <div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="{{ (lv.progres * 100)|round|int }}">
+        <span class="xp-isi" style="--p: {{ (lv.progres * 100)|round(1) }}%"></span>
+      </div>
+      <p class="xp-ket">
+        <b>{{ lv.xp }}</b> XP
+        {% if lv.berikut %} · {{ lv.kurang }} lagi → {{ lv.berikut[1] }}{% else %} · level tertinggi{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <p class="gelembung" id="gelembung" aria-live="polite">{{ pesan[0] }}</p>
+
+  <div class="lencana">
+    <span class="pil">⭐ +{{ lv.xp_hari_ini }} XP hari ini</span>
+    <span class="pil {% if streak.current %}nyala{% endif %}">🔥 {{ streak.current }} hari <small>rekor {{ streak.best }}</small></span>
+    <span class="pil {% if tahajud.current %}nyala{% endif %}">🌙 {{ tahajud.current }} malam <small>{{ malam }}/7</small></span>
+    <span class="pil {% if sedekah_pekan %}nyala{% endif %}">🤲 {{ sedekah_pekan }}/7 hari</span>
+    {% if rutin_hari %}<span class="pil nyala">💧 {{ rutin_hari }} hari mengalir</span>{% endif %}
+  </div>
+
+  <details class="lipat">
+    <summary>Tangga level</summary>
+    <ol class="tangga">
+      {% for t in tangga %}
+      <li class="{% if t.terbuka %}terbuka{% else %}terkunci{% endif %}{% if t.idx == lv.idx %} kini{% endif %}">
+        <div class="tangga-svg">{{ t.svg|safe }}</div>
+        <span class="tangga-nama">{{ t.idx + 1 }}. {{ t.nama }}</span>
+        <span class="tangga-xp">{% if t.terbuka %}✓ {% else %}🔒 {% endif %}{{ t.ambang }} XP</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </details>
+
+  <details class="lipat">
+    <summary>Dari mana XP-mu</summary>
+    <ul class="rincian">
+      {% for r in rincian %}
+      <li>
+        <span class="r-label">{{ r.label }}</span>
+        <span class="r-bar"><span style="--p: {{ r.pct }}%"></span></span>
+        <span class="r-xp">{{ r.xp }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+
+  <details class="lipat">
+    <summary>Cara dapat XP</summary>
+    <table class="tabel aturan">
+      {% for label, nilai in aturan %}
+      <tr><td>{{ label }}</td><td>{{ nilai }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="catatan-kecil">XP tidak pernah minus. Selain awal waktu, shalat bernilai 0 — tetap catat dengan jujur, karena itu yang menjaga streak dan polanya terbaca.</p>
+  </details>
+</section>

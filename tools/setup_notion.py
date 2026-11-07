@@ -1,7 +1,7 @@
-"""Periksa skema Notion, dan (opsional) tambahkan kolom Sumber (§8, §11.2).
+"""Periksa skema Notion, dan (opsional) tambahkan kolom Sumber & kolom sedekah (§8, §11.2).
 
     python -m tools.setup_notion            # hanya memeriksa, tidak mengubah apa pun
-    python -m tools.setup_notion --apply    # tambahkan properti 'Sumber' kalau belum ada
+    python -m tools.setup_notion --apply    # tambahkan 'Sumber' & kolom sedekah yang belum ada
 
 Kolom Sumber memisahkan baris yang kamu konfirmasi dari baris yang ditebak
 fallback. Tanpa itu, hari yang terlewat tercatat identik dengan hari yang
@@ -45,6 +45,23 @@ async def main(apply: bool) -> int:
             print("  ✗", issue)
     else:
         print("✓ Skema cocok dengan yang dibutuhkan bot.")
+
+    sedekah_cols = {
+        s.prop_sedekah_rutin: {"checkbox": {}},
+        s.prop_sedekah_n: {"number": {"format": "number"}},
+        s.prop_sedekah_ket: {"rich_text": {}},
+    }
+    missing = {k: v for k, v in sedekah_cols.items() if k not in props}
+    if missing and apply:
+        path = (
+            f"/data_sources/{s.notion_data_source_id}"
+            if repo.client.use_data_source
+            else f"/databases/{s.notion_database_id}"
+        )
+        await repo.client.request("PATCH", path, {"properties": missing})
+        print(f"✓ Kolom sedekah ditambahkan: {', '.join(missing)}")
+    elif missing:
+        print(f"\nJalankan dengan --apply untuk menambahkan kolom sedekah: {', '.join(missing)}")
 
     if s.prop_sumber not in props and apply:
         path = (

@@ -13,6 +13,10 @@
     <p class="sub" id="periode-label">Memuat…</p>
   </header>
 
+  <div id="level" hx-get="/app/level" hx-trigger="load" hx-swap="innerHTML">
+    <section class="kartu pohon kerangka" aria-busy="true"><p class="sub">Menyiram pohon amal…</p></section>
+  </div>
+
   <form id="filters" class="filters"
         hx-get="/app/panel"
         hx-target="#panel"
@@ -105,6 +109,67 @@
   </script>
   <script src="/static/htmx.min.js"></script>
   <script>
+    // --- Pohon Amal: interaksi kecil tanpa pustaka -------------------------
+    (function () {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      const haptic = (kind) => { try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred(kind); } catch (e) {} };
+      let giliran = 0;
+
+      document.body.addEventListener('click', function (event) {
+        const tombol = event.target.closest('#avatar');
+        if (!tombol) return;
+        const svg = tombol.querySelector('svg');
+        svg.classList.remove('goyang');
+        void svg.getBoundingClientRect();  // mulai ulang animasi
+        svg.classList.add('goyang');
+        haptic('light');
+        let pesan = [];
+        try { pesan = JSON.parse(tombol.dataset.pesan || '[]'); } catch (e) {}
+        if (!pesan.length) return;
+        giliran = (giliran + 1) % pesan.length;
+        const el = document.getElementById('gelembung');
+        el.classList.remove('muncul');
+        void el.offsetWidth;
+        el.textContent = pesan[giliran];
+        el.classList.add('muncul');
+        const hint = tombol.querySelector('.ketuk-hint');
+        if (hint) hint.remove();
+      });
+
+      function konfeti(induk) {
+        const warna = ['#2f9e68', '#d6a419', '#e8c35a', '#7cc59c', '#c8503f'];
+        for (let i = 0; i < 36; i++) {
+          const k = document.createElement('i');
+          k.className = 'konfeti';
+          k.style.left = (Math.random() * 100) + '%';
+          k.style.background = warna[i % warna.length];
+          k.style.animationDelay = (Math.random() * 0.4) + 's';
+          k.style.setProperty('--x', ((Math.random() - 0.5) * 120) + 'px');
+          induk.appendChild(k);
+          setTimeout(() => k.remove(), 2200);
+        }
+      }
+
+      document.body.addEventListener('htmx:afterSwap', function (event) {
+        if (event.detail.target.id !== 'level') return;
+        const kartu = event.detail.target.querySelector('.pohon');
+        if (!kartu) return;
+        const level = parseInt(kartu.dataset.level, 10);
+        // Ingatan per perangkat saja, untuk merayakan naik level sekali.
+        let lama = null;
+        try { lama = parseInt(localStorage.getItem('pohon-level'), 10); } catch (e) {}
+        if (lama && level > lama) {
+          konfeti(kartu);
+          haptic('heavy');
+          const el = document.getElementById('gelembung');
+          el.textContent = '⬆️ Naik level! Pohonmu kini ' + kartu.dataset.nama + '.';
+          el.classList.add('muncul');
+        }
+        try { localStorage.setItem('pohon-level', String(level)); } catch (e) {}
+      });
+    })();
+  </script>
+  <script>
     document.body.addEventListener('htmx:responseError', function (event) {
       const xhr = event.detail.xhr;
       let sebab = '';
@@ -114,7 +179,7 @@
         : 'Kode ' + xhr.status + '. Coba lagi sebentar.';
       const detail = window.__diag || sebab;
       const esc = (t) => t.replace(/[<&>]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;' }[c]));
-      document.getElementById('panel').innerHTML =
+      (event.detail.target || document.getElementById('panel')).innerHTML =
         '<div class="kartu galat"><b>Gagal memuat data</b><p>' + pesan + '</p>' +
         (detail ? '<p class="sub">' + esc(detail) + '</p>' : '') + '</div>';
     });

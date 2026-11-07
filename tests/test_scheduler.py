@@ -28,6 +28,9 @@ class FakeRepo:
     async def get_day(self, day):
         return self.existing.get(day)
 
+    async def fetch_range(self, start, end):
+        return [r for d, r in self.existing.items() if start <= d <= end]
+
     async def set_prayer(self, day, prayer, waktu, cara, sumber):
         self.writes.append((day, prayer, waktu, cara, sumber))
 
@@ -52,6 +55,9 @@ class FakeRuntime:
 
     async def notify_owner(self, text, reply_markup=None, *, silent=False):
         self.sent.append((text, silent))
+
+    async def notify_private(self, text, reply_markup=None):
+        self.sent.append((text, "japri"))
 
 
 @pytest.fixture

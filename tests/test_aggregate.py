@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from app.miniapp.aggregate import aggregate, current_streak, make_filters
+from app.miniapp.aggregate import aggregate, make_filters
 from app.notion import DayRecord
 
 HARI_INI = date(2026, 8, 24)  # Senin
@@ -81,13 +81,6 @@ def test_tren_tilawah_dengan_rata_rata_bergerak():
     assert agg.summary["tilawah_total"] == 21
     assert agg.tilawah[-1]["ma7"] == 3.0  # 21 halaman tersebar di 7 hari terakhir
     assert len(agg.tilawah) == 7
-
-
-def test_streak_putus_saat_ada_lewat_waktu():
-    by_day = {HARI_INI - timedelta(days=i): rec(HARI_INI - timedelta(days=i)) for i in range(4)}
-    assert current_streak(by_day, HARI_INI) == 4
-    by_day[HARI_INI - timedelta(days=2)] = rec(HARI_INI - timedelta(days=2), waktu="Lewat waktu")
-    assert current_streak(by_day, HARI_INI) == 2
 
 
 def test_deret_harian_menutupi_seluruh_rentang_termasuk_hari_kosong():

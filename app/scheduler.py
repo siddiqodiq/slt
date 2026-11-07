@@ -77,7 +77,12 @@ class PrayerScheduler:
             out[prayer] = datetime(day.year, day.month, day.day, jam, menit, tzinfo=tz())
         return out
 
+    def _jam(self, day: date, hhmm: str) -> datetime:
+        jam, menit = (int(x) for x in hhmm.split(":"))
+        return datetime(day.year, day.month, day.day, jam, menit, tzinfo=tz())
+
     async def tick(self, now: datetime) -> None:
+        await self.sedekah_tick(now)
         if not self.s.autofill:
             return
 
@@ -100,6 +105,43 @@ class PrayerScheduler:
                                              ttl=CLAIM_TTL):
                 continue
             await self._fill(day, prayer, start)
+
+    async def sedekah_tick(self, now: datetime) -> None:
+        """Nominal rutin ke baris hari ini, dan pengingat bulanan "masih aktif?".
+
+        Seperti auto-fill shalat: diperiksa ulang tiap tick terhadap jam dinding,
+        jadi restart kapan pun tetap menyusul. Nilai yang sudah ada di baris tidak
+        pernah ditimpa — termasuk yang kamu ubah sendiri di Notion.
+        """
+        from . import state
+
+        st = state.load()
+        today = now.date()
+        if (
+            st["rutin_aktif"]
+            and now >= self._jam(today, self.s.sedekah_rutin_jam)
+            and await self.rt.cache.claim(f"sedekah-rutin:{today.isoformat()}", ttl=CLAIM_TTL)
+        ):
+            rec = await self.rt.repo.get_day(today)
+            if rec is None or not rec.sedekah_rutin:
+                await self.rt.repo.set_sedekah_rutin(today, True)
+                log.info("Sedekah rutin %s dicentang", today)
+
+        bulan = today.strftime("%Y-%m")
+        if (
+            st["rutin_aktif"]
+            and today.day == 1
+            and st["pengingat_bulan"] != bulan
+            and now >= self._jam(today, self.s.sedekah_pengingat_jam)
+        ):
+            from .bot.keyboards import sedekah_rutin_cek_keyboard
+
+            state.update(pengingat_bulan=bulan)
+            # Japri, bukan topik grup — sedekah urusan pribadi.
+            await self.rt.notify_private(
+                "🗓 Awal bulan — sudah isi saldo untuk sedekah otomatis harian bulan ini?",
+                reply_markup=sedekah_rutin_cek_keyboard(),
+            )
 
     async def _fill(self, day: date, prayer: str, start: datetime) -> None:
         rec = await self.rt.repo.get_day(day)
@@ -128,8 +170,58 @@ class PrayerScheduler:
             f"Terisi otomatis: <b>{self.s.autofill_waktu} · {self.s.autofill_cara}</b>.\n"
             "Koreksi kalau berbeda."
         )
+        extra, rawan = await self._gamify_lines(day, prayer)
+        if extra:
+            text += "\n\n" + extra
         # Senyap: lima kali sehari, tiap hari. Pesannya tetap masuk lengkap dengan
-        # tombol koreksi, hanya tidak berbunyi.
+        # tombol koreksi, hanya tidak berbunyi — kecuali shalat ini sedang sering
+        # lewat waktu: saat itu pesannya memang dimaksudkan sebagai pengingat.
         await self.rt.notify_owner(
-            text, reply_markup=autofill_keyboard(day, prayer), silent=True
+            text, reply_markup=autofill_keyboard(day, prayer), silent=not rawan
         )
+
+    async def _gamify_lines(self, day: date, prayer: str) -> tuple[str, bool]:
+        """Pengingat untuk shalat yang rawan lewat waktu, dan streak di pesan Subuh.
+
+        Gagal di sini tidak boleh menahan pesan auto-fill — paling buruk pesannya
+        terkirim tanpa tambahan.
+        """
+        from .data import load_history
+        from .gamify import (
+            baris_level,
+            baris_streak,
+            baris_tahajud,
+            compute_level,
+            level_of,
+            compute_streak,
+            lewat_info,
+            malam_pekan_ini,
+            pengingat_rawan,
+            sedekah_pekan_ini,
+            tahajud_streak,
+        )
+        def baris_sedekah_pagi(records, day):
+            rec = next((r for r in records if r.day == day), None)
+            rutin = "💧 Sedekah rutin tercatat · " if rec and rec.sedekah_rutin else ""
+            return f"{rutin}🤲 Sedekah {sedekah_pekan_ini(records, day)}/7 hari pekan ini"
+
+        try:
+            records = await load_history(day, self.rt.repo, self.rt.cache)
+            lines: list[str] = []
+            if prayer == PRAYERS[0]:
+                # Naik level dinilai dari hari yang sudah tutup (kemarin), jadi
+                # tidak perlu menyimpan "level terakhir yang diumumkan" di mana pun.
+                kemarin = day - timedelta(days=1)
+                lv_kemarin = compute_level(records, kemarin)
+                sebelum = level_of(compute_level(records, kemarin - timedelta(days=1)).xp)
+                lines.append(baris_level(lv_kemarin, naik_dari=sebelum))
+                lines.append(baris_streak(compute_streak(records, day), day))
+                lines.append(baris_sedekah_pagi(records, day))
+                lines.append(baris_tahajud(tahajud_streak(records, day), malam_pekan_ini(records, day)))
+            info = lewat_info(records, prayer, day)
+            if info.rawan:
+                lines.append(pengingat_rawan(info, day))
+            return "\n\n".join(lines), info.rawan
+        except Exception:  # noqa: BLE001
+            log.exception("Gamifikasi gagal; pesan auto-fill dikirim tanpa tambahan")
+            return "", False

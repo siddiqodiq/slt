@@ -47,6 +47,13 @@ class DayRecord:
     tilawah: int = 0
     catatan: str = ""
     sumber: str | None = None
+    sedekah_rutin: bool = False  # sedekah otomatis harian tercatat
+    sedekah_n: int = 0  # berapa kali sedekah tambahan
+    sedekah_ket: str = ""  # satu baris per sedekah tambahan
+
+    @property
+    def sedekah_ada(self) -> bool:
+        return self.sedekah_rutin or self.sedekah_n > 0
 
     def waktu(self, prayer: str) -> str | None:
         return (self.prayers.get(prayer) or {}).get("waktu")
@@ -201,6 +208,10 @@ def _read_text(prop: dict | None) -> str:
     return "".join(c.get("plain_text", "") for c in chunks)
 
 
+def _read_int(prop: dict | None) -> int:
+    return int((prop or {}).get("number") or 0)
+
+
 def _read_date(prop: dict | None) -> date | None:
     if not prop:
         return None
@@ -245,6 +256,9 @@ class NotionRepo:
         rec.tilawah = int(tilawah or 0)
         rec.catatan = _read_text(props.get(self.s.prop_catatan))
         rec.sumber = _read_select(props.get(self.s.prop_sumber))
+        rec.sedekah_rutin = bool((props.get(self.s.prop_sedekah_rutin) or {}).get("checkbox", False))
+        rec.sedekah_n = _read_int(props.get(self.s.prop_sedekah_n))
+        rec.sedekah_ket = _read_text(props.get(self.s.prop_sedekah_ket))
         return rec
 
     async def fetch_range(self, start: date, end: date) -> list[DayRecord]:
@@ -384,6 +398,40 @@ class NotionRepo:
         rec.catatan = merged
         return merged
 
+    # --- sedekah ---------------------------------------------------------
+
+    async def set_sedekah_rutin(self, day: date, value: bool = True) -> DayRecord:
+        rec = await self.get_or_create(day)
+        await self._update(rec, {self.s.prop_sedekah_rutin: p_check(value)})
+        rec.sedekah_rutin = value
+        return rec
+
+    async def add_sedekah(self, day: date, baris: str) -> DayRecord:
+        """Tambah satu sedekah: kali +1, keterangan satu baris baru."""
+        rec = await self.get_or_create(day)
+        n = rec.sedekah_n + 1
+        ket = f"{rec.sedekah_ket}\n{baris}".strip() if rec.sedekah_ket else baris
+        await self._update(rec, {
+            self.s.prop_sedekah_n: p_number(n),
+            self.s.prop_sedekah_ket: p_rich(ket),
+        })
+        rec.sedekah_n, rec.sedekah_ket = n, ket
+        return rec
+
+    async def undo_sedekah(self, day: date, n_saat_itu: int) -> DayRecord | None:
+        """Batalkan sedekah terakhir — hanya kalau belum ada yang ditambahkan sesudahnya."""
+        rec = await self.get_day(day)
+        if rec is None or rec.sedekah_n != n_saat_itu or n_saat_itu < 1:
+            return None
+        ket = "\n".join(rec.sedekah_ket.splitlines()[:-1])
+        n = rec.sedekah_n - 1
+        await self._update(rec, {
+            self.s.prop_sedekah_n: p_number(n or None),
+            self.s.prop_sedekah_ket: p_rich(ket),
+        })
+        rec.sedekah_n, rec.sedekah_ket = n, ket
+        return rec
+
     async def mark_sumber(self, day: date, sumber: str) -> None:
         if not self.s.sumber_enabled:
             return
@@ -418,6 +466,9 @@ class NotionRepo:
         expect(self.s.prop_catatan, "rich_text")
         if self.s.sumber_enabled:
             expect(self.s.prop_sumber, "select")
+        expect(self.s.prop_sedekah_rutin, "checkbox")
+        expect(self.s.prop_sedekah_n, "number")
+        expect(self.s.prop_sedekah_ket, "rich_text")
         return issues
 
 

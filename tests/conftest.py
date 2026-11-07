@@ -26,6 +26,13 @@ JADWAL = {
 
 
 @pytest.fixture(autouse=True)
+def state_file(tmp_path, monkeypatch):
+    path = tmp_path / "state.json"
+    monkeypatch.setenv("STATE_PATH", str(path))
+    return path
+
+
+@pytest.fixture(autouse=True)
 def memory_cache():
     cache = Cache("")
     set_cache(cache)

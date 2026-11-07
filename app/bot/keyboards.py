@@ -193,3 +193,27 @@ def main_menu_keyboard(url: str | None = None, *, private: bool = True) -> Reply
         input_field_placeholder="Pilih menu..."
     )
 
+
+
+# --- sedekah ------------------------------------------------------------------
+
+def sedekah_undo_keyboard(day: date, n: int) -> InlineKeyboardMarkup:
+    """`n` = urutan sedekah ini hari itu; batal ditolak kalau sudah ada yang lebih baru."""
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("↩️ Batal", callback_data=f"sd|u|{d2s(day)}|{n}")]]
+    )
+
+
+def sedekah_catat_keyboard(day: date) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🤲 Catat sedekah tanpa keterangan", callback_data=f"sd|a|{d2s(day)}")]]
+    )
+
+
+def sedekah_rutin_cek_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton("✅ Sudah diisi", callback_data="sr|ok"),
+            InlineKeyboardButton("⏸ Berhenti", callback_data="sr|off"),
+        ]]
+    )

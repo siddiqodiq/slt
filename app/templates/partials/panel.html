@@ -21,7 +21,7 @@
   </div>
   <div class="tile">
     <span class="angka">{{ agg.summary.streak }}</span>
-    <span class="ket">hari berturut lengkap</span>
+    <span class="ket">hari streak · rekor {{ agg.summary.rekor }}</span>
   </div>
   <p class="catatan-kecil">
     {{ agg.summary.tercatat }} dari {{ agg.summary.kemungkinan }} shalat tercatat
@@ -61,6 +61,25 @@
 <section class="kartu">
   <h2>Tren tilawah <span class="sub">garis = rata-rata 7 hari</span></h2>
   <div class="scroll-x">{{ svg_tilawah|safe }}</div>
+</section>
+
+<section class="kartu">
+  <h2>Sedekah <span class="sub">{{ agg.sedekah.hari }} dari {{ agg.sedekah.hari_total }} hari</span></h2>
+  <div class="ringkasan sedekah">
+    <div class="tile"><span class="angka">{{ agg.sedekah.hari }}</span><span class="ket">hari bersedekah</span></div>
+    <div class="tile"><span class="angka">{{ agg.sedekah.hari_rutin }}</span><span class="ket">💧 hari rutin</span></div>
+    <div class="tile"><span class="angka">{{ agg.sedekah.kali_tambahan }}×</span><span class="ket">🤲 tambahan · {{ agg.sedekah.hari_tambahan }} hari</span></div>
+  </div>
+  {% if agg.sedekah.riwayat %}
+  <ul class="catatan">
+    {% for item in agg.sedekah.riwayat %}
+    <li><span class="tanggal">{{ item.date.strftime('%d %b') }}</span> {{ item.text }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="kosong">Belum ada sedekah tambahan di rentang ini. Catat lewat <code>/sedekah kotak masjid</code>.</p>
+  {% endif %}
+  <p class="catatan-kecil">Yang dihitung seberapa sering, bukan seberapa besar.</p>
 </section>
 
 <section class="kartu">

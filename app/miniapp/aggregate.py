@@ -88,6 +88,7 @@ class Aggregate:
     sunnah: list[dict] = field(default_factory=list)
     tilawah: list[dict] = field(default_factory=list)
     catatan: list[dict] = field(default_factory=list)
+    sedekah: dict = field(default_factory=dict)
 
 
 def _pct(part: int, whole: int) -> float:
@@ -165,6 +166,9 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
         point["ma7"] = round(sum(p["pages"] for p in window) / len(window), 2)
 
     agg = Aggregate(filters=filters)
+    agg.sedekah = sedekah_summary(
+        [r for d, r in sorted(by_day.items()) if filters.day_allowed(r)], len(days)
+    )
     agg.harian = harian
     agg.tilawah = tilawah_series
     agg.catatan = list(reversed(catatan))[:10]
@@ -180,7 +184,6 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
         "pct_tercatat": _pct(total, possible),
         "hari_terisi": days_recorded,
         "hari_total": len(days),
-        "streak": current_streak(by_day, filters.end),
         "hari_otomatis": sum(1 for h in harian if h["auto"]),
     }
 
@@ -219,26 +222,6 @@ def aggregate(records: list[DayRecord], filters: Filters) -> Aggregate:
     return agg
 
 
-def current_streak(by_day: dict[date, DayRecord], end: date) -> int:
-    """Hari berturut-turut dengan lima shalat tercatat dan tidak ada 'Lewat waktu'.
-
-    Sengaja tidak ditampilkan sebagai target yang bisa 'putus' — lihat catatan
-    motivasi di §7; angka ini hanya salah satu dari beberapa indikator.
-    """
-    streak = 0
-    cursor = end
-    while True:
-        rec = by_day.get(cursor)
-        if rec is None:
-            break
-        waktus = [rec.waktu(p) for p in PRAYERS]
-        if any(w is None for w in waktus) or any(w == "Lewat waktu" for w in waktus):
-            break
-        streak += 1
-        cursor -= timedelta(days=1)
-    return streak
-
-
 def cara_breakdown(records: list[DayRecord], filters: Filters) -> dict[str, int]:
     counts = dict.fromkeys(CARA_OPTIONS, 0)
     for rec in records:
@@ -249,3 +232,21 @@ def cara_breakdown(records: list[DayRecord], filters: Filters) -> dict[str, int]
             if cara and rec.waktu(prayer) and filters.entry_allowed(rec.waktu(prayer), cara):
                 counts[cara] = counts.get(cara, 0) + 1
     return counts
+
+
+def sedekah_summary(records: list[DayRecord], hari_total: int) -> dict:
+    """Ringkasan sedekah dalam rentang — frekuensi saja, tanpa nominal."""
+    riwayat = [
+        {"date": r.day, "text": baris}
+        for r in records
+        for baris in r.sedekah_ket.splitlines()
+        if baris.strip()
+    ]
+    return {
+        "hari": sum(1 for r in records if r.sedekah_ada),
+        "hari_total": hari_total,
+        "hari_rutin": sum(1 for r in records if r.sedekah_rutin),
+        "hari_tambahan": sum(1 for r in records if r.sedekah_n),
+        "kali_tambahan": sum(r.sedekah_n for r in records),
+        "riwayat": list(reversed(riwayat))[:12],
+    }

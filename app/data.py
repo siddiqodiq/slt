@@ -26,6 +26,9 @@ def rec_to_dict(rec: DayRecord) -> dict:
         "tilawah": rec.tilawah,
         "catatan": rec.catatan,
         "sumber": rec.sumber,
+        "sedekah_rutin": rec.sedekah_rutin,
+        "sedekah_n": rec.sedekah_n,
+        "sedekah_ket": rec.sedekah_ket,
     }
 
 
@@ -40,6 +43,9 @@ def rec_from_dict(data: dict) -> DayRecord:
         tilawah=data.get("tilawah", 0),
         catatan=data.get("catatan", ""),
         sumber=data.get("sumber"),
+        sedekah_rutin=bool(data.get("sedekah_rutin", False)),
+        sedekah_n=data.get("sedekah_n", 0),
+        sedekah_ket=data.get("sedekah_ket", ""),
     )
 
 
@@ -61,3 +67,14 @@ async def load_records(
     )
     log.debug("Ambil %d baris Notion untuk %s..%s", len(records), start, end)
     return records
+
+
+# Riwayat untuk streak & rekor. Satu rentang tetap supaya semua pemanggil
+# (bot, penjadwal) berbagi satu entri cache.
+HISTORY_DAYS = 365
+
+
+async def load_history(today: date, repo: NotionRepo | None = None, cache: Cache | None = None) -> list[DayRecord]:
+    from datetime import timedelta
+
+    return await load_records(today - timedelta(days=HISTORY_DAYS - 1), today, repo, cache)

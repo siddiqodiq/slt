@@ -19,6 +19,8 @@ COMMANDS = [
     BotCommand("catatan", "Catatan refleksi hari ini"),
     BotCommand("edit", "Koreksi shalat hari ini/kemarin"),
     BotCommand("rekap", "Ringkasan 7 & 30 hari"),
+    BotCommand("sedekah", "Catat sedekah tambahan"),
+    BotCommand("sedekahrutin", "Atur sedekah otomatis harian"),
     BotCommand("dashboard", "Buka Mini App"),
 ]
 

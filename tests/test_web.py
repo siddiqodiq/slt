@@ -30,6 +30,11 @@ def client(monkeypatch):
         ]
 
     monkeypatch.setattr("app.miniapp.routes.load_records", fake_load)
+
+    async def fake_history(today, *args, **kwargs):
+        return await fake_load(today, today)
+
+    monkeypatch.setattr("app.miniapp.routes.load_history", fake_history)
     # Tanpa context manager: lifespan tidak dijalankan, jadi tidak ada koneksi keluar.
     return TestClient(app)
 
@@ -93,3 +98,10 @@ def test_health(client):
     # Melaporkan ada/tidaknya config var, tidak pernah nilainya.
     assert body["config"]["TELEGRAM_BOT_TOKEN"] is True
     assert "8822858925" not in resp.text
+
+
+def test_kartu_level_butuh_auth_dan_merender_avatar(client):
+    assert client.get("/app/level").status_code == 401
+    resp = client.get("/app/level", headers={"X-Dev-Token": "dev-token"})
+    assert resp.status_code == 200
+    assert 'class="avatar"' in resp.text and "Lv " in resp.text

@@ -33,7 +33,7 @@ WAKTU_OPTIONS: tuple[str, ...] = ("Awal waktu", "Tengah waktu", "Akhir waktu", "
 CARA_OPTIONS: tuple[str, ...] = ("Masjid", "Berjamaah", "Munfarid")
 QABLIYAH_OPTIONS: tuple[str, ...] = ("Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya")
 BADIYAH_OPTIONS: tuple[str, ...] = ("Dzuhur", "Maghrib", "Isya")
-CHECKBOX_SUNNAH: tuple[str, ...] = ("Tahajud", "Dhuha", "Tahiyatul Masjid", "Al-Waqiah", "Al-Mulk")
+CHECKBOX_SUNNAH: tuple[str, ...] = ("Tahajud", "Dhuha", "Solat Sunah Lainnya", "Al-Waqiah", "Al-Mulk")
 SUMBER_OPTIONS: tuple[str, ...] = ("Konfirmasi", "Otomatis", "Manual")
 
 # Nama hari & bulan untuk judul baris Notion: "Senin, 24 Agu"
@@ -61,6 +61,16 @@ PROP_TILAWAH = "Tilawah"
 PROP_CATATAN = "Catatan"
 PROP_SUMBER = "Sumber"
 SUMBER_ENABLED = True  # §11.2
+
+# Sedekah — sengaja tanpa nominal: yang dicatat hanya "ada sedekah", dan XP
+# dihitung dari frekuensi.
+PROP_SEDEKAH_RUTIN = "Sedekah Rutin"  # checkbox; dicentang penjadwal saat rutin ON
+PROP_SEDEKAH_N = "Sedekah Tambahan"  # number; berapa kali hari itu
+PROP_SEDEKAH_KET = "Keterangan Sedekah"  # rich_text; satu baris per sedekah
+SEDEKAH_RUTIN_JAM = "00:05"  # kapan baris hari ini dicentang Sedekah Rutin
+SEDEKAH_PENGINGAT_JAM = "08:00"  # tanggal 1 tiap bulan: "masih aktif?"
+# Keadaan kecil yang harus bertahan saat restart (saklar sedekah rutin). Server ini tanpa Redis, dan ini bukan data ibadah — tidak ke Notion.
+STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "state.json")
 
 # Keputusan §11.4: baris mana yang dituju input manual dini hari.
 TAHAJUD_DAY = "wake"  # "wake" (tanggal saat bangun) | "previous" (sebelum 05:00 = kemarin)
@@ -163,6 +173,12 @@ class Settings:
     prop_catatan: str = PROP_CATATAN
     prop_sumber: str = PROP_SUMBER
     sumber_enabled: bool = SUMBER_ENABLED
+    prop_sedekah_rutin: str = PROP_SEDEKAH_RUTIN
+    prop_sedekah_n: str = PROP_SEDEKAH_N
+    prop_sedekah_ket: str = PROP_SEDEKAH_KET
+    sedekah_rutin_jam: str = SEDEKAH_RUTIN_JAM
+    sedekah_pengingat_jam: str = SEDEKAH_PENGINGAT_JAM
+    state_path: str = STATE_PATH
 
     tahajud_day: str = TAHAJUD_DAY
 

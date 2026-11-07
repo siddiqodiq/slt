@@ -163,6 +163,19 @@ class Runtime:
         except Exception:  # noqa: BLE001
             log.exception("Gagal mengirim pesan ke owner")
 
+    async def notify_private(self, text: str, reply_markup=None) -> None:
+        """Selalu ke japri owner, apa pun tujuan laporan otomatis — untuk hal
+        pribadi seperti sedekah."""
+        if self.telegram is None or not self.settings.owner_id:
+            return
+        try:
+            await self.telegram.bot.send_message(
+                chat_id=self.settings.owner_id, text=text,
+                parse_mode=ParseMode.HTML, reply_markup=reply_markup,
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("Gagal mengirim pesan japri ke owner")
+
     async def aclose(self) -> None:
         await self.stop_scheduler()
         await self.stop_bot()
